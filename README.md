@@ -4,7 +4,7 @@ Minimale native Android-App fur kurze GPS-basierte Geschwindigkeitsmessungen, ge
 
 ## Aktueller Stand
 
-Schritt 4 ist umgesetzt:
+Schritt 5 ist umgesetzt:
 
 - Android-Projektgrundgerust
 - App-Modul mit Kotlin und Jetpack Compose
@@ -14,8 +14,7 @@ Schritt 4 ist umgesetzt:
 - Live-Anzeige der aktuellen Geschwindigkeit und der aktuellen Genauigkeit
 - Sitzungssteuerung mit `Start`, `Stopp` und `Zurucksetzen`
 - Sitzungsstatistiken fur Distanz, Durchschnitt und Maximum
-
-GNSS-Satellitenstatus und eine echte GPS-Statusleiste sind noch nicht umgesetzt.
+- Kleine GPS-Statusleiste mit Satellitenzahl, GPS-Qualitat und Genauigkeit
 
 ## Geplante App-Funktionen
 
@@ -42,7 +41,7 @@ Falls du lieber uber die Kommandozeile baust, richte zuerst den Gradle-Wrapper e
 ./gradlew assembleDebug
 ```
 
-## So testest du Schritt 4
+## So testest du Schritt 5
 
 1. Starte die App auf einem Gerat oder Emulator mit Google-Play-Diensten oder normalen Android-Standorteinstellungen.
 2. Prufe beim ersten Start, dass die App nach der genauen Standortberechtigung fragt.
@@ -55,8 +54,9 @@ Falls du lieber uber die Kommandozeile baust, richte zuerst den Gradle-Wrapper e
 9. Stoppe die Messung und prufe, dass die Sitzungswerte eingefroren bleiben, wahrend die aktuelle Geschwindigkeit weiter aktualisiert wird.
 10. Starte erneut und prufe, dass eine neue Sitzung bei `0` beginnt.
 11. Setze zuruck und prufe, dass Distanz, Durchschnitt und Maximum wieder auf den Ausgangszustand gehen.
-12. Prufe, dass die App im Hintergrund keine Updates mehr verarbeitet.
+12. Prufe, dass die obere Statusleiste `Sat`, `GPS` und Genauigkeit anzeigt und sich bei besserem oder schlechterem Empfang verandert.
+13. Prufe, dass die App im Hintergrund keine Updates mehr verarbeitet.
 
 ## Hinweis zur Genauigkeit
 
-Die App ist fur sehr kurze Messungen gedacht. GPS-basierte Geschwindigkeit und Distanz konnen auf kurzen Strecken verrauscht sein, besonders bei schlechter Satellitensicht oder schwacher Genauigkeit. Die bisherige Distanzberechnung zahlt nur Punkte mit brauchbarer Genauigkeit, um grobe Ausreisser etwas zu begrenzen. In spateren Schritten werden Satelliten- und Genauigkeitsinformationen noch sichtbarer aufbereitet, damit sich Ergebnisse besser einordnen lassen.
+Die App ist fur sehr kurze Messungen gedacht. GPS-basierte Geschwindigkeit und Distanz konnen auf kurzen Strecken verrauscht sein, besonders bei schlechter Satellitensicht oder schwacher Genauigkeit. Die Distanzberechnung zahlt nur Punkte mit brauchbarer Genauigkeit, um grobe Ausreisser etwas zu begrenzen. Die neue Statusleiste mit Satellitenzahl, Fix-Qualitat und Genauigkeit hilft dabei, Messergebnisse besser einzuordnen, ersetzt aber keine echte Hochprazisionsmessung.

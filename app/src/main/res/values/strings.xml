@@ -17,6 +17,15 @@
     <string name="session_stopped">Messung gestoppt</string>
     <string name="accuracy_value">Genauigkeit: %1$d m</string>
     <string name="accuracy_unavailable">Genauigkeit nicht verfugbar</string>
+    <string name="status_accuracy_value">± %1$d m</string>
+    <string name="status_accuracy_unavailable">± -</string>
+    <string name="gps_satellites_used_visible">Sat: %1$d/%2$d</string>
+    <string name="gps_satellites_visible_only">Sat: %1$d</string>
+    <string name="gps_satellites_unavailable">Sat: -</string>
+    <string name="gps_quality_good">GPS: Gut</string>
+    <string name="gps_quality_medium">GPS: Mittel</string>
+    <string name="gps_quality_poor">GPS: Schlecht</string>
+    <string name="gps_quality_no_fix">GPS: Kein Fix</string>
     <string name="distance_value_meters">Distanz: %1$d m</string>
     <string name="distance_value_km">Distanz: %1$s km</string>
     <string name="average_speed_value">Durchschnitt: %1$d km/h</string>

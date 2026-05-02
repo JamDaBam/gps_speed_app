@@ -20,10 +20,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -48,6 +51,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.slidespeed.location.FastLocationClient
+import com.example.slidespeed.location.GpsStatusMonitor
+import com.example.slidespeed.location.GpsStatusSnapshot
 import com.example.slidespeed.location.LocationReading
 import com.example.slidespeed.ui.theme.SlideSpeedTheme
 import java.util.Locale
@@ -125,13 +130,21 @@ private fun SlideSpeedApp() {
 private fun ReadyContent() {
     val measurementState = rememberMeasurementState()
     val uiState = measurementState.uiState
+    val gpsStatus = measurementState.gpsStatus
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.statusBars)
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        GpsStatusBar(
+            gpsStatus = gpsStatus,
+            accuracyLabel = uiState.statusBarAccuracyLabel.resolve(),
+            qualityLabel = gpsStatus.toQualityLabel(uiState.currentAccuracyMeters).resolve(),
+        )
+        Spacer(modifier = Modifier.height(12.dp))
         Text(
             text = stringResource(R.string.gps_ready_title),
             style = MaterialTheme.typography.labelLarge,
@@ -167,11 +180,6 @@ private fun ReadyContent() {
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.padding(top = 20.dp),
                 )
-                Text(
-                    text = uiState.accuracyLabel.resolve(),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
                 Spacer(modifier = Modifier.height(28.dp))
                 StatsSection(measurementState = uiState)
                 Spacer(modifier = Modifier.height(28.dp))
@@ -183,6 +191,31 @@ private fun ReadyContent() {
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun GpsStatusBar(
+    gpsStatus: GpsStatusSnapshot,
+    accuracyLabel: String,
+    qualityLabel: String,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = gpsStatus.toSatellitesLabel().resolve(),
+            style = MaterialTheme.typography.labelMedium,
+        )
+        Text(
+            text = qualityLabel,
+            style = MaterialTheme.typography.labelMedium,
+        )
+        Text(
+            text = accuracyLabel,
+            style = MaterialTheme.typography.labelMedium,
+        )
     }
 }
 
@@ -288,18 +321,21 @@ private fun rememberMeasurementState(): MeasurementStateHolder {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val locationClient = remember(context) { FastLocationClient(context) }
+    val gpsStatusMonitor = remember(context) { GpsStatusMonitor(context) }
     val measurementState = remember(context) {
         MeasurementStateHolder(context.defaultMeasurementUiState())
     }
 
-    DisposableEffect(lifecycleOwner, locationClient) {
+    DisposableEffect(lifecycleOwner, locationClient, gpsStatusMonitor) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_START -> {
                     locationClient.start(measurementState::consume)
+                    gpsStatusMonitor.start(measurementState::updateGpsStatus)
                 }
                 Lifecycle.Event.ON_STOP -> {
                     locationClient.stop()
+                    gpsStatusMonitor.stop()
                 }
                 else -> Unit
             }
@@ -308,11 +344,13 @@ private fun rememberMeasurementState(): MeasurementStateHolder {
         lifecycleOwner.lifecycle.addObserver(observer)
         if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
             locationClient.start(measurementState::consume)
+            gpsStatusMonitor.start(measurementState::updateGpsStatus)
         }
 
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
             locationClient.stop()
+            gpsStatusMonitor.stop()
         }
     }
 
@@ -321,6 +359,8 @@ private fun rememberMeasurementState(): MeasurementStateHolder {
 
 private class MeasurementStateHolder(initialState: MeasurementUiState) {
     var uiState by mutableStateOf(initialState)
+        private set
+    var gpsStatus by mutableStateOf(GpsStatusSnapshot())
         private set
 
     fun startSession() {
@@ -337,6 +377,10 @@ private class MeasurementStateHolder(initialState: MeasurementUiState) {
 
     fun consume(reading: LocationReading) {
         uiState = uiState.consume(reading)
+    }
+
+    fun updateGpsStatus(status: GpsStatusSnapshot) {
+        gpsStatus = status
     }
 }
 
@@ -402,7 +446,8 @@ private data class MeasurementUiState(
     val averageSpeedLabel: UiText,
     val maxSpeedLabel: UiText,
     val statusLabel: UiText,
-    val accuracyLabel: UiText,
+    val statusBarAccuracyLabel: UiText,
+    val currentAccuracyMeters: Int?,
     val isRunning: Boolean,
     val totalDistanceMeters: Float,
     val maxSpeedKmh: Float,
@@ -447,8 +492,9 @@ private data class MeasurementUiState(
         val roundedAccuracy = reading.accuracyMeters?.roundToInt()
         val liveState = copy(
             currentSpeedLabel = roundedSpeed.toSpeedLabel(),
-            accuracyLabel = roundedAccuracy?.let { R.string.accuracy_value.toText(it) }
-                ?: UiText.Resource(R.string.accuracy_unavailable),
+            statusBarAccuracyLabel = roundedAccuracy?.let { R.string.status_accuracy_value.toText(it) }
+                ?: UiText.Resource(R.string.status_accuracy_unavailable),
+            currentAccuracyMeters = roundedAccuracy,
         )
 
         if (!isRunning) {
@@ -501,6 +547,27 @@ private fun Int.toAverageSpeedLabel(): UiText = R.string.average_speed_value.toT
 
 private fun Int.toMaxSpeedLabel(): UiText = R.string.max_speed_value.toText(this)
 
+private fun GpsStatusSnapshot.toSatellitesLabel(): UiText = when {
+    usedSatellites != null && visibleSatellites != null ->
+        R.string.gps_satellites_used_visible.toText(usedSatellites, visibleSatellites)
+    visibleSatellites != null ->
+        R.string.gps_satellites_visible_only.toText(visibleSatellites)
+    else -> UiText.Resource(R.string.gps_satellites_unavailable)
+}
+
+private fun GpsStatusSnapshot.toQualityLabel(currentAccuracyMeters: Int?): UiText {
+    val qualityResId = when {
+        !hasFix -> R.string.gps_quality_no_fix
+        currentAccuracyMeters != null && currentAccuracyMeters <= 10 && (usedSatellites ?: 0) >= 4 ->
+            R.string.gps_quality_good
+        currentAccuracyMeters != null && currentAccuracyMeters <= 20 && (usedSatellites ?: 0) >= 3 ->
+            R.string.gps_quality_medium
+        usedSatellites != null && usedSatellites >= 4 -> R.string.gps_quality_medium
+        else -> R.string.gps_quality_poor
+    }
+    return UiText.Resource(qualityResId)
+}
+
 private fun Float.toDistanceLabel(): UiText {
     val roundedMeters = roundToInt().coerceAtLeast(0)
     return if (roundedMeters >= 1000) {
@@ -518,7 +585,8 @@ private fun Context.defaultMeasurementUiState(): MeasurementUiState = Measuremen
     averageSpeedLabel = 0.toAverageSpeedLabel(),
     maxSpeedLabel = 0.toMaxSpeedLabel(),
     statusLabel = UiText.Resource(R.string.session_ready),
-    accuracyLabel = UiText.Resource(R.string.accuracy_unavailable),
+    statusBarAccuracyLabel = UiText.Resource(R.string.status_accuracy_unavailable),
+    currentAccuracyMeters = null,
     isRunning = false,
     totalDistanceMeters = 0f,
     maxSpeedKmh = 0f,
