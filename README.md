@@ -1,56 +1,56 @@
-# Slide Speed
+# Rutschentacho
 
-Minimal native Android app for short GPS-based speed measurements, intended for fun use cases like measuring a ride down a slide.
+Minimale native Android-App fur kurze GPS-basierte Geschwindigkeitsmessungen, gedacht fur spielerische Anwendungsfalle wie das Messen einer Rutschfahrt.
 
-## Current status
+## Aktueller Stand
 
-Step 3 is implemented:
+Schritt 3 ist umgesetzt:
 
-- Android project scaffold
-- Kotlin + Jetpack Compose app module
-- Runtime fine-location permission flow
-- GPS/location-services enabled state handling
-- High-frequency fused location updates while the app is in the foreground
-- Live current speed and current accuracy display in the ready state
+- Android-Projektgrundgerust
+- App-Modul mit Kotlin und Jetpack Compose
+- Laufzeitabfrage fur die genaue Standortberechtigung
+- Behandlung der Zustande fur aktivierte GPS- und Standortdienste
+- Hochfrequente Fused-Location-Updates, solange die App im Vordergrund ist
+- Live-Anzeige der aktuellen Geschwindigkeit und der aktuellen Genauigkeit im Bereitschaftszustand
 
-Distance/session stats, GNSS satellite status, and session controls are not implemented yet.
+Distanz- und Sitzungsstatistiken, GNSS-Satellitenstatus und Sitzungssteuerung sind noch nicht umgesetzt.
 
-## Planned app features
+## Geplante App-Funktionen
 
-- Current speed in `km/h`
-- Distance traveled per session
-- Average speed
-- Maximum speed
-- GPS status bar with fix quality, satellites, and accuracy
-- Start, stop, and reset controls
+- Aktuelle Geschwindigkeit in `km/h`
+- Zuruckgelegte Distanz pro Sitzung
+- Durchschnittsgeschwindigkeit
+- Hochstgeschwindigkeit
+- GPS-Statusleiste mit Fix-Qualitat, Satelliten und Genauigkeit
+- Steuerung zum Starten, Stoppen und Zurucksetzen
 
-## Build and run
+## Bauen und Starten
 
-This repository currently contains the app scaffold plus the permission and GPS-readiness prerequisite flow.
+Dieses Repository enthalt derzeit das App-Grundgerust sowie den Ablauf fur Berechtigungen und GPS-Bereitschaft.
 
-To run it:
+So startest du die App:
 
-1. Open the project in Android Studio.
-2. Let Android Studio install the required Android SDK and Gradle tooling.
-3. Build and run the `app` configuration on an emulator or Android device.
+1. Projekt in Android Studio offnen.
+2. Android Studio die erforderlichen Android-SDK- und Gradle-Komponenten installieren lassen.
+3. Die Konfiguration `app` auf einem Emulator oder Android-Gerat bauen und starten.
 
-If you prefer CLI builds, generate or add a Gradle wrapper first, then run:
+Falls du lieber uber die Kommandozeile baust, richte zuerst den Gradle-Wrapper ein und fuhre dann aus:
 
 ```bash
 ./gradlew assembleDebug
 ```
 
-## How to test Step 3
+## So testest du Schritt 3
 
-1. Launch the app on a device or emulator with Google Play services or standard Android location settings.
-2. On first launch, confirm the app asks for precise location permission.
-3. Deny permission once and verify the app keeps showing the permission-required state with a retry button.
-4. Deny permission permanently and verify the app offers a button to open app settings.
-5. Grant permission with location services turned off and verify the app shows the GPS-disabled state.
-6. Turn location services on, return to the app, and verify it switches to the ready state without a restart.
-7. Move outdoors or use mock locations and verify the speed value changes from `0 km/h` when location updates arrive.
-8. Verify the accuracy label updates in meters and the app stops updating when sent to the background.
+1. Starte die App auf einem Gerat oder Emulator mit Google-Play-Diensten oder normalen Android-Standorteinstellungen.
+2. Prufe beim ersten Start, dass die App nach der genauen Standortberechtigung fragt.
+3. Lehne die Berechtigung einmal ab und prufe, dass weiterhin der Berechtigungszustand mit erneutem Button angezeigt wird.
+4. Lehne die Berechtigung dauerhaft ab und prufe, dass die App einen Button zu den App-Einstellungen anbietet.
+5. Erteile die Berechtigung bei deaktivierten Standortdiensten und prufe, dass der GPS-deaktiviert-Zustand erscheint.
+6. Aktiviere die Standortdienste, kehre zur App zuruck und prufe, dass ohne Neustart in den Bereitschaftszustand gewechselt wird.
+7. Bewege dich im Freien oder nutze Mock-Standorte und prufe, dass sich der Geschwindigkeitswert bei eingehenden Updates von `0 km/h` verandert.
+8. Prufe, dass sich die Genauigkeitsanzeige in Metern aktualisiert und die App im Hintergrund keine Updates mehr verarbeitet.
 
-## Accuracy note
+## Hinweis zur Genauigkeit
 
-This app is meant for very short measurement sessions. GPS-based speed and distance can be noisy over short distances, especially with poor satellite visibility or weak accuracy. Later steps will expose satellite and accuracy information so results are easier to judge.
+Die App ist fur sehr kurze Messungen gedacht. GPS-basierte Geschwindigkeit und Distanz konnen auf kurzen Strecken verrauscht sein, besonders bei schlechter Satellitensicht oder schwacher Genauigkeit. In spateren Schritten werden Satelliten- und Genauigkeitsinformationen angezeigt, damit sich Ergebnisse besser einordnen lassen.

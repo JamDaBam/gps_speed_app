@@ -1,12 +1,18 @@
 <resources>
-    <string name="app_name">Slide Speed</string>
-    <string name="permission_title">Location permission needed</string>
-    <string name="permission_message">Slide Speed needs location access before it can check GPS readiness or measure speed.</string>
-    <string name="permission_rationale">Grant precise location so the app can read GPS-based speed and readiness information.</string>
-    <string name="permission_cta">Grant permission</string>
-    <string name="permission_settings_cta">Open app settings</string>
-    <string name="gps_disabled_title">Location services disabled</string>
-    <string name="gps_disabled_message">Turn on GPS or location services so the app can receive fast speed updates.</string>
-    <string name="gps_settings_cta">Open location settings</string>
+    <string name="app_name">Rutschentacho</string>
+    <string name="permission_title">Standortberechtigung erforderlich</string>
+    <string name="permission_message">Der Rutschentacho braucht Standortzugriff, bevor GPS-Bereitschaft und Geschwindigkeit geprüft werden können.</string>
+    <string name="permission_rationale">Erlaube den genauen Standort, damit die App GPS-Geschwindigkeit und Bereitschaftsinformationen lesen kann.</string>
+    <string name="permission_cta">Berechtigung erteilen</string>
+    <string name="permission_settings_cta">App-Einstellungen öffnen</string>
+    <string name="gps_disabled_title">Standortdienste deaktiviert</string>
+    <string name="gps_disabled_message">Aktiviere GPS oder Standortdienste, damit die App schnelle Geschwindigkeitsupdates empfangen kann.</string>
+    <string name="gps_settings_cta">Standorteinstellungen öffnen</string>
+    <string name="gps_ready_title">GPS bereit</string>
+    <string name="ready_headline">Rutschentacho</string>
     <string name="placeholder_speed">0 km/h</string>
+    <string name="speed_status_waiting">Warte auf GPS-Geschwindigkeitsupdate ...</string>
+    <string name="speed_status_live">GPS-Geschwindigkeit erfolgreich empfangen</string>
+    <string name="accuracy_value">Genauigkeit: %1$d m</string>
+    <string name="accuracy_unavailable">Genauigkeit nicht verfügbar</string>
 </resources>

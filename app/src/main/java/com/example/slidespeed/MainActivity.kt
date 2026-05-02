@@ -13,6 +13,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -29,6 +30,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -124,7 +126,7 @@ private fun ReadyContent() {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = "GPS ready",
+            text = stringResource(R.string.gps_ready_title),
             style = MaterialTheme.typography.labelLarge,
             modifier = Modifier.align(Alignment.Start),
         )
@@ -136,22 +138,22 @@ private fun ReadyContent() {
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
-                    text = "Slide Speed",
+                    text = stringResource(R.string.ready_headline),
                     style = MaterialTheme.typography.headlineMedium,
                 )
                 Text(
-                    text = speedState.speedLabel,
+                    text = speedState.speedLabel.resolve(),
                     fontSize = 56.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = 20.dp),
                 )
                 Text(
-                    text = speedState.statusLabel,
+                    text = stringResource(speedState.statusLabel),
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.padding(top = 20.dp),
                 )
                 Text(
-                    text = speedState.accuracyLabel,
+                    text = speedState.accuracyLabel.resolve(),
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(top = 8.dp),
                 )
@@ -212,7 +214,9 @@ private fun rememberLocationReadingState(): SpeedUiState {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val locationClient = remember(context) { FastLocationClient(context) }
-    var speedState by remember { mutableStateOf(SpeedUiState()) }
+    var speedState by remember(context) {
+        mutableStateOf(context.defaultSpeedUiState())
+    }
 
     DisposableEffect(lifecycleOwner, locationClient) {
         val observer = LifecycleEventObserver { _, event ->
@@ -304,17 +308,41 @@ private fun LocationReading.toSpeedUiState(): SpeedUiState {
     val roundedSpeed = speedKmh.roundToInt().coerceAtLeast(0)
     val roundedAccuracy = accuracyMeters?.roundToInt()
     return SpeedUiState(
-        speedLabel = "$roundedSpeed km/h",
-        statusLabel = "Live GPS speed update received",
-        accuracyLabel = roundedAccuracy?.let { "Accuracy: $it m" } ?: "Accuracy unavailable",
+        speedLabel = roundedSpeed.toSpeedLabel(),
+        statusLabel = R.string.speed_status_live,
+        accuracyLabel = roundedAccuracy?.let { R.string.accuracy_value.toText(it) }
+            ?: UiText.Resource(R.string.accuracy_unavailable),
     )
 }
 
 private data class SpeedUiState(
-    val speedLabel: String = "0 km/h",
-    val statusLabel: String = "Waiting for GPS speed update...",
-    val accuracyLabel: String = "Accuracy unavailable",
+    val speedLabel: UiText,
+    @StringRes val statusLabel: Int,
+    val accuracyLabel: UiText,
 )
+
+private sealed interface UiText {
+    data class Dynamic(val value: String) : UiText
+    data class Resource(@StringRes val resId: Int) : UiText
+    data class Formatted(@StringRes val resId: Int, val args: List<Any>) : UiText
+}
+
+@Composable
+private fun UiText.resolve(): String = when (this) {
+    is UiText.Dynamic -> value
+    is UiText.Resource -> stringResource(resId)
+    is UiText.Formatted -> stringResource(resId, *args.toTypedArray())
+}
+
+private fun Int.toSpeedLabel(): UiText = UiText.Dynamic("$this km/h")
+
+private fun Context.defaultSpeedUiState(): SpeedUiState = SpeedUiState(
+    speedLabel = 0.toSpeedLabel(),
+    statusLabel = R.string.speed_status_waiting,
+    accuracyLabel = UiText.Resource(R.string.accuracy_unavailable),
+)
+
+private fun Int.toText(vararg args: Any): UiText = UiText.Formatted(this, args.toList())
 
 private const val PERMISSION_PREFS_NAME = "slide_speed_permissions"
 private const val HAS_REQUESTED_LOCATION_PERMISSION_KEY = "has_requested_location_permission"
