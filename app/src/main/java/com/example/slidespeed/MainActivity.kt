@@ -5,19 +5,24 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
+import android.location.Location
 import android.location.LocationManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -30,10 +35,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -45,6 +50,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.slidespeed.location.FastLocationClient
 import com.example.slidespeed.location.LocationReading
 import com.example.slidespeed.ui.theme.SlideSpeedTheme
+import java.util.Locale
 import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
@@ -117,7 +123,7 @@ private fun SlideSpeedApp() {
 
 @Composable
 private fun ReadyContent() {
-    val speedState = rememberLocationReadingState()
+    val measurementState = rememberMeasurementState()
 
     Column(
         modifier = Modifier
@@ -130,8 +136,16 @@ private fun ReadyContent() {
             style = MaterialTheme.typography.labelLarge,
             modifier = Modifier.align(Alignment.Start),
         )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = measurementState.statusLabel.resolve(),
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.align(Alignment.Start),
+        )
         Box(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
             contentAlignment = Alignment.Center,
         ) {
             Column(
@@ -142,22 +156,81 @@ private fun ReadyContent() {
                     style = MaterialTheme.typography.headlineMedium,
                 )
                 Text(
-                    text = speedState.speedLabel.resolve(),
+                    text = measurementState.currentSpeedLabel.resolve(),
                     fontSize = 56.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = 20.dp),
                 )
                 Text(
-                    text = stringResource(speedState.statusLabel),
+                    text = stringResource(R.string.current_speed_label),
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.padding(top = 20.dp),
                 )
                 Text(
-                    text = speedState.accuracyLabel.resolve(),
+                    text = measurementState.accuracyLabel.resolve(),
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(top = 8.dp),
                 )
+                Spacer(modifier = Modifier.height(28.dp))
+                StatsSection(measurementState = measurementState)
+                Spacer(modifier = Modifier.height(28.dp))
+                SessionControls(
+                    isRunning = measurementState.isRunning,
+                    onStart = measurementState::startSession,
+                    onStop = measurementState::stopSession,
+                    onReset = measurementState::resetSession,
+                )
             }
+        }
+    }
+}
+
+@Composable
+private fun StatsSection(measurementState: MeasurementUiState) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = measurementState.distanceLabel.resolve(),
+            style = MaterialTheme.typography.titleMedium,
+        )
+        Text(
+            text = measurementState.averageSpeedLabel.resolve(),
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+        Text(
+            text = measurementState.maxSpeedLabel.resolve(),
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+    }
+}
+
+@Composable
+private fun SessionControls(
+    isRunning: Boolean,
+    onStart: () -> Unit,
+    onStop: () -> Unit,
+    onReset: () -> Unit,
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Button(
+            onClick = onStart,
+            enabled = !isRunning,
+        ) {
+            Text(stringResource(R.string.start_button))
+        }
+        Button(
+            onClick = onStop,
+            enabled = isRunning,
+        ) {
+            Text(stringResource(R.string.stop_button))
+        }
+        Button(onClick = onReset) {
+            Text(stringResource(R.string.reset_button))
         }
     }
 }
@@ -210,12 +283,12 @@ private enum class ScreenState {
 }
 
 @Composable
-private fun rememberLocationReadingState(): SpeedUiState {
+private fun rememberMeasurementState(): MeasurementUiState {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val locationClient = remember(context) { FastLocationClient(context) }
-    var speedState by remember(context) {
-        mutableStateOf(context.defaultSpeedUiState())
+    var measurementState by remember(context) {
+        mutableStateOf(context.defaultMeasurementUiState())
     }
 
     DisposableEffect(lifecycleOwner, locationClient) {
@@ -223,7 +296,7 @@ private fun rememberLocationReadingState(): SpeedUiState {
             when (event) {
                 Lifecycle.Event.ON_START -> {
                     locationClient.start { reading ->
-                        speedState = reading.toSpeedUiState()
+                        measurementState = measurementState.consume(reading)
                     }
                 }
                 Lifecycle.Event.ON_STOP -> {
@@ -236,7 +309,7 @@ private fun rememberLocationReadingState(): SpeedUiState {
         lifecycleOwner.lifecycle.addObserver(observer)
         if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
             locationClient.start { reading ->
-                speedState = reading.toSpeedUiState()
+                measurementState = measurementState.consume(reading)
             }
         }
 
@@ -246,7 +319,7 @@ private fun rememberLocationReadingState(): SpeedUiState {
         }
     }
 
-    return speedState
+    return measurementState
 }
 
 /**
@@ -258,6 +331,7 @@ private fun getScreenState(context: Context): ScreenState {
         context,
         Manifest.permission.ACCESS_FINE_LOCATION,
     ) == PackageManager.PERMISSION_GRANTED
+
     if (!hasFineLocation) {
         val activity = context as? ComponentActivity
         val shouldShowRationale = activity?.shouldShowRequestPermissionRationale(
@@ -304,22 +378,91 @@ private fun Context.isLocationEnabled(): Boolean {
 private fun Context.permissionPreferences(): SharedPreferences =
     getSharedPreferences(PERMISSION_PREFS_NAME, Context.MODE_PRIVATE)
 
-private fun LocationReading.toSpeedUiState(): SpeedUiState {
-    val roundedSpeed = speedKmh.roundToInt().coerceAtLeast(0)
-    val roundedAccuracy = accuracyMeters?.roundToInt()
-    return SpeedUiState(
-        speedLabel = roundedSpeed.toSpeedLabel(),
-        statusLabel = R.string.speed_status_live,
-        accuracyLabel = roundedAccuracy?.let { R.string.accuracy_value.toText(it) }
-            ?: UiText.Resource(R.string.accuracy_unavailable),
-    )
-}
-
-private data class SpeedUiState(
-    val speedLabel: UiText,
-    @StringRes val statusLabel: Int,
+private data class MeasurementUiState(
+    val currentSpeedLabel: UiText,
+    val distanceLabel: UiText,
+    val averageSpeedLabel: UiText,
+    val maxSpeedLabel: UiText,
+    val statusLabel: UiText,
     val accuracyLabel: UiText,
-)
+    val isRunning: Boolean,
+    val totalDistanceMeters: Float,
+    val maxSpeedKmh: Float,
+    val sessionStartTimeMillis: Long?,
+    val lastSample: LocationReading?,
+) {
+    fun startSession(): MeasurementUiState = copy(
+        distanceLabel = 0f.toDistanceLabel(),
+        averageSpeedLabel = 0.toAverageSpeedLabel(),
+        maxSpeedLabel = 0.toMaxSpeedLabel(),
+        statusLabel = UiText.Resource(R.string.session_running),
+        isRunning = true,
+        totalDistanceMeters = 0f,
+        maxSpeedKmh = 0f,
+        sessionStartTimeMillis = null,
+        lastSample = null,
+    )
+
+    fun stopSession(): MeasurementUiState = copy(
+        statusLabel = UiText.Resource(R.string.session_stopped),
+        isRunning = false,
+        lastSample = null,
+    )
+
+    fun resetSession(): MeasurementUiState = copy(
+        distanceLabel = 0f.toDistanceLabel(),
+        averageSpeedLabel = 0.toAverageSpeedLabel(),
+        maxSpeedLabel = 0.toMaxSpeedLabel(),
+        statusLabel = UiText.Resource(R.string.session_ready),
+        isRunning = false,
+        totalDistanceMeters = 0f,
+        maxSpeedKmh = 0f,
+        sessionStartTimeMillis = null,
+        lastSample = null,
+    )
+
+    /**
+     * Keeps the live speed visible at all times and only aggregates session metrics while running.
+     */
+    fun consume(reading: LocationReading): MeasurementUiState {
+        val roundedSpeed = reading.speedKmh.roundToInt().coerceAtLeast(0)
+        val roundedAccuracy = reading.accuracyMeters?.roundToInt()
+        val liveState = copy(
+            currentSpeedLabel = roundedSpeed.toSpeedLabel(),
+            accuracyLabel = roundedAccuracy?.let { R.string.accuracy_value.toText(it) }
+                ?: UiText.Resource(R.string.accuracy_unavailable),
+        )
+
+        if (!isRunning) {
+            return liveState
+        }
+
+        val nextStartTimeMillis = sessionStartTimeMillis ?: reading.timestampMillis
+        val distanceIncrementMeters = lastSample
+            ?.takeIf { previous -> isTrustedForDistance(previous) && isTrustedForDistance(reading) }
+            ?.distanceTo(reading)
+            ?: 0f
+        val nextDistanceMeters = totalDistanceMeters + distanceIncrementMeters
+        val nextMaxSpeedKmh = maxOf(maxSpeedKmh, reading.speedKmh.coerceAtLeast(0f))
+        val durationMillis = (reading.timestampMillis - nextStartTimeMillis).coerceAtLeast(0L)
+        val averageSpeedKmh = if (durationMillis > 0L) {
+            nextDistanceMeters / METERS_PER_KILOMETER / (durationMillis / MILLIS_PER_HOUR)
+        } else {
+            0f
+        }
+
+        return liveState.copy(
+            distanceLabel = nextDistanceMeters.toDistanceLabel(),
+            averageSpeedLabel = averageSpeedKmh.roundToInt().coerceAtLeast(0).toAverageSpeedLabel(),
+            maxSpeedLabel = nextMaxSpeedKmh.roundToInt().coerceAtLeast(0).toMaxSpeedLabel(),
+            statusLabel = UiText.Resource(R.string.session_running),
+            totalDistanceMeters = nextDistanceMeters,
+            maxSpeedKmh = nextMaxSpeedKmh,
+            sessionStartTimeMillis = nextStartTimeMillis,
+            lastSample = reading,
+        )
+    }
+}
 
 private sealed interface UiText {
     data class Dynamic(val value: String) : UiText
@@ -336,13 +479,56 @@ private fun UiText.resolve(): String = when (this) {
 
 private fun Int.toSpeedLabel(): UiText = UiText.Dynamic("$this km/h")
 
-private fun Context.defaultSpeedUiState(): SpeedUiState = SpeedUiState(
-    speedLabel = 0.toSpeedLabel(),
-    statusLabel = R.string.speed_status_waiting,
+private fun Int.toAverageSpeedLabel(): UiText = R.string.average_speed_value.toText(this)
+
+private fun Int.toMaxSpeedLabel(): UiText = R.string.max_speed_value.toText(this)
+
+private fun Float.toDistanceLabel(): UiText {
+    val roundedMeters = roundToInt().coerceAtLeast(0)
+    return if (roundedMeters >= 1000) {
+        R.string.distance_value_km.toText(
+            String.format(Locale.GERMANY, "%.2f", roundedMeters / METERS_PER_KILOMETER),
+        )
+    } else {
+        R.string.distance_value_meters.toText(roundedMeters)
+    }
+}
+
+private fun Context.defaultMeasurementUiState(): MeasurementUiState = MeasurementUiState(
+    currentSpeedLabel = 0.toSpeedLabel(),
+    distanceLabel = 0f.toDistanceLabel(),
+    averageSpeedLabel = 0.toAverageSpeedLabel(),
+    maxSpeedLabel = 0.toMaxSpeedLabel(),
+    statusLabel = UiText.Resource(R.string.session_ready),
     accuracyLabel = UiText.Resource(R.string.accuracy_unavailable),
+    isRunning = false,
+    totalDistanceMeters = 0f,
+    maxSpeedKmh = 0f,
+    sessionStartTimeMillis = null,
+    lastSample = null,
 )
 
 private fun Int.toText(vararg args: Any): UiText = UiText.Formatted(this, args.toList())
 
+private fun isTrustedForDistance(reading: LocationReading): Boolean {
+    val accuracyMeters = reading.accuracyMeters ?: return false
+    return accuracyMeters <= MAX_DISTANCE_ACCURACY_METERS
+}
+
+private fun LocationReading.distanceTo(other: LocationReading): Float {
+    val result = FloatArray(1)
+    Location.distanceBetween(
+        latitude,
+        longitude,
+        other.latitude,
+        other.longitude,
+        result,
+    )
+    return result[0]
+}
+
 private const val PERMISSION_PREFS_NAME = "slide_speed_permissions"
 private const val HAS_REQUESTED_LOCATION_PERMISSION_KEY = "has_requested_location_permission"
+private const val MAX_DISTANCE_ACCURACY_METERS = 25f
+private const val METERS_PER_KILOMETER = 1_000f
+private const val MILLIS_PER_HOUR = 3_600_000f

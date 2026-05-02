@@ -54,6 +54,9 @@ class FastLocationClient(context: Context) {
         return LocationReading(
             speedKmh = speed * KMH_PER_MPS,
             accuracyMeters = if (hasAccuracy()) accuracy else null,
+            latitude = latitude,
+            longitude = longitude,
+            timestampMillis = time,
         )
     }
 
@@ -74,4 +77,7 @@ class FastLocationClient(context: Context) {
 data class LocationReading(
     val speedKmh: Float,
     val accuracyMeters: Float?,
+    val latitude: Double,
+    val longitude: Double,
+    val timestampMillis: Long,
 )
