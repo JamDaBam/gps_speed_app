@@ -20,33 +20,49 @@ data class MeasurementSnapshot(
     val averageSpeedKmh: Int = 0,
     val maxSpeedKmh: Int = 0,
     val sessionStartTimeMillis: Long? = null,
+    val accumulatedPausedDurationMillis: Long = 0L,
+    val pauseStartedAtMillis: Long? = null,
     val lastAcceptedReading: LocationReading? = null,
     val lastSessionReading: LocationReading? = null,
 )
 
 class MeasurementTracker(
     private val validator: LocationReadingValidator = LocationReadingValidator(),
+    private val timeMillisProvider: () -> Long = System::currentTimeMillis,
     initialSnapshot: MeasurementSnapshot = MeasurementSnapshot(),
 ) {
     var snapshot: MeasurementSnapshot = initialSnapshot
         private set
 
     fun startSession() {
-        snapshot = snapshot.copy(
-            sessionStatus = SessionStatus.Running,
-            isRunning = true,
-            totalDistanceMeters = 0f,
-            averageSpeedKmh = 0,
-            maxSpeedKmh = 0,
-            sessionStartTimeMillis = null,
-            lastSessionReading = null,
-        )
+        snapshot = when (snapshot.sessionStatus) {
+            SessionStatus.Ready -> MeasurementSnapshot(
+                currentSpeedKmh = snapshot.currentSpeedKmh,
+                currentAccuracyMeters = snapshot.currentAccuracyMeters,
+                sessionStatus = SessionStatus.Running,
+                isRunning = true,
+                lastAcceptedReading = snapshot.lastAcceptedReading,
+            )
+            SessionStatus.Stopped -> snapshot.copy(
+                sessionStatus = SessionStatus.Running,
+                isRunning = true,
+                accumulatedPausedDurationMillis = snapshot.accumulatedPausedDurationMillis +
+                    pausedDurationMillis(),
+                pauseStartedAtMillis = null,
+                lastSessionReading = null,
+            )
+            SessionStatus.Running -> snapshot
+        }
     }
 
     fun stopSession() {
+        if (!snapshot.isRunning) {
+            return
+        }
         snapshot = snapshot.copy(
             sessionStatus = SessionStatus.Stopped,
             isRunning = false,
+            pauseStartedAtMillis = timeMillisProvider(),
             lastSessionReading = null,
         )
     }
@@ -59,6 +75,8 @@ class MeasurementTracker(
             averageSpeedKmh = 0,
             maxSpeedKmh = 0,
             sessionStartTimeMillis = null,
+            accumulatedPausedDurationMillis = 0L,
+            pauseStartedAtMillis = null,
             lastSessionReading = null,
         )
     }
@@ -91,7 +109,11 @@ class MeasurementTracker(
             ?: 0f
         val nextDistanceMeters = snapshot.totalDistanceMeters + distanceIncrementMeters
         val nextMaxSpeedKmh = max(snapshot.maxSpeedKmh.toFloat(), reading.speedKmh.coerceAtLeast(0f))
-        val durationMillis = (reading.timestampMillis - nextStartTimeMillis).coerceAtLeast(0L)
+        val durationMillis = (
+            reading.timestampMillis -
+                nextStartTimeMillis -
+                snapshot.accumulatedPausedDurationMillis
+            ).coerceAtLeast(0L)
         val averageSpeedKmh = if (durationMillis > 0L) {
             nextDistanceMeters / METERS_PER_KILOMETER / (durationMillis / MILLIS_PER_HOUR)
         } else {
@@ -105,6 +127,11 @@ class MeasurementTracker(
             sessionStartTimeMillis = nextStartTimeMillis,
             lastSessionReading = reading,
         )
+    }
+
+    private fun pausedDurationMillis(): Long {
+        val pauseStartedAtMillis = snapshot.pauseStartedAtMillis ?: return 0L
+        return (timeMillisProvider() - pauseStartedAtMillis).coerceAtLeast(0L)
     }
 }
 

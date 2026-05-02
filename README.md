@@ -9,7 +9,7 @@ Minimale native Android-App fur kurze GPS-basierte Geschwindigkeitsmessungen, ge
 - Durchschnittsgeschwindigkeit pro Messsitzung
 - Hochstgeschwindigkeit pro Messsitzung
 - GPS-Statusleiste mit Satelliten, Fix-Qualitat und Genauigkeit
-- Sitzungssteuerung mit `Start`, `Stopp` und `Reset`
+- Sitzungssteuerung mit `Start`, `Stopp` als Pause und `Reset`
 
 ## Technik
 
@@ -50,6 +50,10 @@ Die App behandelt fehlende Berechtigungen und deaktivierte Standortdienste direk
 ## Messlogik und Grenzen
 
 - Live-Werte und Sitzungsmetriken verwenden nur aktuelle, zeitlich vorwarts laufende Standortproben.
+- `Start` beginnt aus `Bereit` eine neue Messung und setzt nach `Stopp` dieselbe Sitzung fort.
+- `Stopp` pausiert nur. Erst `Reset` verwirft Distanz, Durchschnitt und Maximum.
+- Die Durchschnittsgeschwindigkeit basiert nur auf aktiver Messzeit; Pausen zahlen nicht mit.
+- Live-Geschwindigkeit bevorzugt direkte GPS-Speed-Werte und verarbeitet alle frischen Fused-Location-Proben einer Lieferung.
 - Veraltete, ruckwarts laufende, offensichtlich ungultige und als Mock markierte Positionen werden verworfen.
 - Distanz, Durchschnitt und Maximum einer Sitzung ignorieren Proben mit schlechter Genauigkeit sowie unrealistische Positionssprunge.
 - Dadurch reagiert die App defensiver auf GPS-Rauschen, ersetzt aber weiterhin keine spezialisierte Messtechnik.
@@ -65,9 +69,11 @@ Die App behandelt fehlende Berechtigungen und deaktivierte Standortdienste direk
 7. Im Freien prufen, dass aktuelle Geschwindigkeit und Genauigkeit fortlaufend aktualisiert werden.
 8. Eine Messung starten und prufen, dass Distanz, Durchschnitt und Maximum wahrend einer plausiblen Bewegung steigen.
 9. Messung mit schlechter Genauigkeit, altem Mock-Standort oder deutlichem Positionssprung gegenprufen und prufen, dass Sitzungsmetriken nicht spurios steigen.
-10. Die Messung stoppen und prufen, dass die Sitzungswerte stehen bleiben.
-11. `Reset` auslosen und prufen, dass die Sitzungswerte wieder auf den Ausgangszustand gehen.
-12. Prufen, dass die GPS-Statusleiste Satelliten, Qualitat und Genauigkeit sichtbar halt.
+10. Die Messung stoppen und prufen, dass die Sitzung pausiert und die Werte stehen bleiben.
+11. Nach `Stopp` wieder `Start` drucken und prufen, dass dieselbe Sitzung mit vorhandener Distanz, Durchschnitt und Maximum fortgesetzt wird.
+12. Wahrend einer Pause kurz warten und dann fortsetzen; prufen, dass die Durchschnittsgeschwindigkeit nicht allein durch die Wartezeit sinkt.
+13. `Reset` auslosen und prufen, dass die Sitzungswerte wieder auf den Ausgangszustand gehen.
+14. Prufen, dass die GPS-Statusleiste Satelliten, Qualitat und Genauigkeit sichtbar halt.
 
 ## Genauigkeitsgrenzen
 

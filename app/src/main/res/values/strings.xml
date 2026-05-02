@@ -12,7 +12,7 @@
     <string name="current_speed_label">Aktuelle Geschwindigkeit</string>
     <string name="session_ready">Bereit fur eine neue Messung</string>
     <string name="session_running">Messung läuft</string>
-    <string name="session_stopped">Messung gestoppt</string>
+    <string name="session_stopped">Messung pausiert</string>
     <string name="accuracy_value">Genauigkeit: %1$d m</string>
     <string name="accuracy_unavailable">Genauigkeit nicht verfügbar</string>
     <string name="status_accuracy_value">± %1$d m</string>
