@@ -26,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
@@ -39,7 +40,10 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.example.slidespeed.location.FastLocationClient
+import com.example.slidespeed.location.LocationReading
 import com.example.slidespeed.ui.theme.SlideSpeedTheme
+import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -111,6 +115,8 @@ private fun SlideSpeedApp() {
 
 @Composable
 private fun ReadyContent() {
+    val speedState = rememberLocationReadingState()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -134,15 +140,20 @@ private fun ReadyContent() {
                     style = MaterialTheme.typography.headlineMedium,
                 )
                 Text(
-                    text = "0 km/h",
+                    text = speedState.speedLabel,
                     fontSize = 56.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = 20.dp),
                 )
                 Text(
-                    text = "Permission is granted and GPS is enabled. Tracking starts in the next step.",
+                    text = speedState.statusLabel,
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.padding(top = 20.dp),
+                )
+                Text(
+                    text = speedState.accuracyLabel,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = 8.dp),
                 )
             }
         }
@@ -194,6 +205,44 @@ private enum class ScreenState {
     PermissionDenied,
     PermissionPermanentlyDenied,
     GpsDisabled,
+}
+
+@Composable
+private fun rememberLocationReadingState(): SpeedUiState {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val locationClient = remember(context) { FastLocationClient(context) }
+    var speedState by remember { mutableStateOf(SpeedUiState()) }
+
+    DisposableEffect(lifecycleOwner, locationClient) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> {
+                    locationClient.start { reading ->
+                        speedState = reading.toSpeedUiState()
+                    }
+                }
+                Lifecycle.Event.ON_STOP -> {
+                    locationClient.stop()
+                }
+                else -> Unit
+            }
+        }
+
+        lifecycleOwner.lifecycle.addObserver(observer)
+        if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+            locationClient.start { reading ->
+                speedState = reading.toSpeedUiState()
+            }
+        }
+
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            locationClient.stop()
+        }
+    }
+
+    return speedState
 }
 
 /**
@@ -250,6 +299,22 @@ private fun Context.isLocationEnabled(): Boolean {
 
 private fun Context.permissionPreferences(): SharedPreferences =
     getSharedPreferences(PERMISSION_PREFS_NAME, Context.MODE_PRIVATE)
+
+private fun LocationReading.toSpeedUiState(): SpeedUiState {
+    val roundedSpeed = speedKmh.roundToInt().coerceAtLeast(0)
+    val roundedAccuracy = accuracyMeters?.roundToInt()
+    return SpeedUiState(
+        speedLabel = "$roundedSpeed km/h",
+        statusLabel = "Live GPS speed update received",
+        accuracyLabel = roundedAccuracy?.let { "Accuracy: $it m" } ?: "Accuracy unavailable",
+    )
+}
+
+private data class SpeedUiState(
+    val speedLabel: String = "0 km/h",
+    val statusLabel: String = "Waiting for GPS speed update...",
+    val accuracyLabel: String = "Accuracy unavailable",
+)
 
 private const val PERMISSION_PREFS_NAME = "slide_speed_permissions"
 private const val HAS_REQUESTED_LOCATION_PERMISSION_KEY = "has_requested_location_permission"
