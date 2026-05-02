@@ -1,35 +1,34 @@
 # Sauseschaf
 
-Minimale native Android-App fur kurze GPS-basierte Geschwindigkeitsmessungen, gedacht fur spielerische Anwendungsfalle wie das Messen einer Rutschfahrt.
+Sauseschaf ist eine kleine native Android-App fur kurze GPS-basierte Geschwindigkeitsmessungen, gedacht fur spielerische Anwendungsfalle wie das Messen einer Rutschfahrt.
 
 ## Funktionsumfang
 
-- Aktuelle Geschwindigkeit in `km/h`
-- Distanz pro Messsitzung
-- Durchschnittsgeschwindigkeit pro Messsitzung
-- Hochstgeschwindigkeit pro Messsitzung
+- Aktuelle Geschwindigkeit gross in `m/s` mit zusatzlicher Anzeige in `km/h`
+- Sitzungsmetriken fur Distanz, Durchschnitt und Maximum
 - GPS-Statusleiste mit Satelliten, Fix-Qualitat und Genauigkeit
 - Sitzungssteuerung mit `Start`, `Stopp` als Pause und `Reset`
+- Fortsetzung einer pausierten Messung bis zum expliziten `Reset`
+- Wiederherstellung des letzten Messstands nach App-Neustart
 
 ## Technik
 
 - Kotlin
-- Native Android-App
-- Jetpack Compose
+- Native Android-App mit Jetpack Compose
 - Google Play Services Fused Location Provider fur schnelle Standortupdates
 - GNSS-Status uber `LocationManagerCompat`
+- Lokale Snapshot-Speicherung uber `SharedPreferences`
 
-## Bauen und Starten
+## Entwicklung
 
-1. Projekt in Android Studio offnen.
-2. Android Studio die erforderlichen Android-SDK- und Gradle-Komponenten installieren lassen.
-3. Ein echtes Android-Gerat bevorzugen, weil kurze GPS-Messungen im Emulator nur eingeschrankt aussagekraftig sind.
-4. Die Konfiguration `app` bauen und starten.
+Projekt in Android Studio offnen und die Konfiguration `app` auf einem echten Android-Gerat starten. Fur kurze GPS-Messungen ist ein Emulator nur eingeschrankt aussagekraftig.
 
-Falls du lieber uber die Kommandozeile baust:
+Wichtige Gradle-Befehle:
 
 ```bash
 ./gradlew assembleDebug
+./gradlew testDebugUnitTest
+./gradlew clean
 ```
 
 ## Berechtigungen und Voraussetzungen
@@ -38,25 +37,24 @@ Falls du lieber uber die Kommandozeile baust:
 - Aktivierte Standortdienste
 - Moglichst freier Himmel fur brauchbare GPS-Werte
 
-Die App behandelt fehlende Berechtigungen und deaktivierte Standortdienste direkt in der Oberflache.
+Fehlende Berechtigungen und deaktivierte Standortdienste behandelt die App direkt in der Oberflache inklusive Weiterleitung in die passenden Systemeinstellungen.
 
-## Datenschutz und Backup-Verhalten
+## Datenschutz und lokaler Zustand
 
 - Die App sendet keine Messdaten an einen Server.
-- Sitzungsdaten werden nur im Arbeitsspeicher gehalten und beim Beenden nicht dauerhaft gespeichert.
-- Android-Backups sind absichtlich deaktiviert, damit keine standortnahen Zustandsdaten versehentlich uber Auto Backup oder Device Transfer exportiert werden.
-- Die einzige lokale Preference speichert nur, ob die Standortberechtigung bereits angefragt wurde, damit der Berechtigungsfluss sinnvoll reagiert.
+- Der aktuelle Messstand wird lokal auf dem Gerat gespeichert, damit eine laufende oder pausierte Sitzung nach einem App-Neustart wiederhergestellt werden kann.
+- `Reset` verwirft den gespeicherten Sitzungsstand.
+- Android-Backups sind absichtlich deaktiviert, damit keine standortnahen Zustandsdaten uber System-Backups oder Device Transfer exportiert werden.
+- Zusatzlich wird nur gespeichert, ob die Standortberechtigung bereits angefragt wurde, damit der Berechtigungsfluss sinnvoll reagiert.
 
-## Messlogik und Grenzen
+## Messlogik
 
-- Live-Werte und Sitzungsmetriken verwenden nur aktuelle, zeitlich vorwarts laufende Standortproben.
-- `Start` beginnt aus `Bereit` eine neue Messung und setzt nach `Stopp` dieselbe Sitzung fort.
-- `Stopp` pausiert nur. Erst `Reset` verwirft Distanz, Durchschnitt und Maximum.
-- Die Durchschnittsgeschwindigkeit basiert nur auf aktiver Messzeit; Pausen zahlen nicht mit.
-- Live-Geschwindigkeit bevorzugt direkte GPS-Speed-Werte und verarbeitet alle frischen Fused-Location-Proben einer Lieferung.
-- Veraltete, ruckwarts laufende, offensichtlich ungultige und als Mock markierte Positionen werden verworfen.
-- Distanz, Durchschnitt und Maximum einer Sitzung ignorieren Proben mit schlechter Genauigkeit sowie unrealistische Positionssprunge.
-- Dadurch reagiert die App defensiver auf GPS-Rauschen, ersetzt aber weiterhin keine spezialisierte Messtechnik.
+- Live-Werte verwenden nur aktuelle, zeitlich vorwarts laufende und nicht als Mock markierte Standortproben mit gultigen Koordinaten.
+- Die Live-Anzeige bevorzugt frische Fused-Location-Proben und aktualisiert Geschwindigkeit sowie Genauigkeit fortlaufend.
+- `Start` beginnt aus `Bereit` eine neue Sitzung und setzt nach `Stopp` dieselbe Sitzung fort.
+- `Stopp` pausiert nur. Die Durchschnittsgeschwindigkeit basiert ausschliesslich auf aktiver Messzeit.
+- Distanz, Durchschnitt und Maximum ignorieren Proben mit schlechter Genauigkeit sowie unrealistische Positionssprunge.
+- Dadurch reagiert die App defensiver auf GPS-Rauschen, ersetzt aber keine spezialisierte Messtechnik.
 
 ## Testhinweise
 
@@ -65,23 +63,14 @@ Die App behandelt fehlende Berechtigungen und deaktivierte Standortdienste direk
 3. Berechtigung dauerhaft ablehnen und prufen, dass ein Sprung in die App-Einstellungen angeboten wird.
 4. Berechtigung erteilen, Standortdienste deaktivieren und prufen, dass der GPS-Hinweiszustand erscheint.
 5. Standortdienste aktivieren und prufen, dass die App in den Messbildschirm wechselt.
-6. Berechtigung wahrend die App im Vordergrund entziehen und prufen, dass keine Absturze auftreten und der Berechtigungszustand nach `Resume` wieder erscheint.
-7. Im Freien prufen, dass aktuelle Geschwindigkeit und Genauigkeit fortlaufend aktualisiert werden.
-8. Eine Messung starten und prufen, dass Distanz, Durchschnitt und Maximum wahrend einer plausiblen Bewegung steigen.
-9. Messung mit schlechter Genauigkeit, altem Mock-Standort oder deutlichem Positionssprung gegenprufen und prufen, dass Sitzungsmetriken nicht spurios steigen.
-10. Die Messung stoppen und prufen, dass die Sitzung pausiert und die Werte stehen bleiben.
-11. Nach `Stopp` wieder `Start` drucken und prufen, dass dieselbe Sitzung mit vorhandener Distanz, Durchschnitt und Maximum fortgesetzt wird.
-12. Wahrend einer Pause kurz warten und dann fortsetzen; prufen, dass die Durchschnittsgeschwindigkeit nicht allein durch die Wartezeit sinkt.
-13. `Reset` auslosen und prufen, dass die Sitzungswerte wieder auf den Ausgangszustand gehen.
-14. Prufen, dass die GPS-Statusleiste Satelliten, Qualitat und Genauigkeit sichtbar halt.
+6. Im Freien prufen, dass aktuelle Geschwindigkeit, Genauigkeit und GPS-Status fortlaufend aktualisiert werden.
+7. Eine Messung starten und prufen, dass Distanz, Durchschnitt und Maximum bei plausibler Bewegung steigen.
+8. Die Messung stoppen und prufen, dass die Sitzung pausiert und die Werte stehen bleiben.
+9. Nach `Stopp` wieder `Start` drucken und prufen, dass dieselbe Sitzung mit vorhandener Distanz, Durchschnitt und Maximum fortgesetzt wird.
+10. Wahrend einer Pause kurz warten und dann fortsetzen; prufen, dass die Durchschnittsgeschwindigkeit nicht allein durch die Wartezeit sinkt.
+11. App wahrend einer laufenden oder pausierten Messung beenden und erneut offnen; prufen, dass der letzte Messstand wiederhergestellt wird.
+12. `Reset` auslosen und prufen, dass die Sitzungswerte wieder auf den Ausgangszustand gehen und die gespeicherte Sitzung verschwindet.
 
 ## Genauigkeitsgrenzen
 
-Die App ist bewusst einfach gehalten und nicht fur Hochprazisionsmessungen gedacht. Bei sehr kurzen Fahrten konnen GPS-Geschwindigkeit und Distanz deutlich schwanken. Besonders kleine Distanzen reagieren stark auf:
-
-- verzogerte GPS-Fixes
-- schwankende Genauigkeit
-- schlechte Satellitensicht
-- Positionssprunge zwischen zwei Updates
-
-Die Statusleiste mit Satelliten, Fix-Qualitat und Genauigkeit hilft bei der Einordnung, ersetzt aber keine professionelle Messtechnik.
+Die App ist bewusst einfach gehalten und nicht fur Hochprazisionsmessungen gedacht. Bei sehr kurzen Fahrten konnen GPS-Geschwindigkeit und Distanz deutlich schwanken. Besonders kleine Distanzen reagieren stark auf verzogerte GPS-Fixes, schwankende Genauigkeit, schlechte Satellitensicht und Positionssprunge zwischen zwei Updates.
