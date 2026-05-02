@@ -182,11 +182,12 @@ private fun ReadyContent() {
                 )
             }
         }
-        Text(
-            text = stringResource(R.string.measurement_note),
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        // Text(
+        //
+        // text = stringResource(R.string.measurement_note),
+        // style = MaterialTheme.typography.bodySmall,
+        // modifier = Modifier.fillMaxWidth(),
+        // )
     }
 }
 
