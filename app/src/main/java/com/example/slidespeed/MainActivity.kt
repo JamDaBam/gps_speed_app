@@ -124,6 +124,7 @@ private fun SlideSpeedApp() {
 @Composable
 private fun ReadyContent() {
     val measurementState = rememberMeasurementState()
+    val uiState = measurementState.uiState
 
     Column(
         modifier = Modifier
@@ -138,7 +139,7 @@ private fun ReadyContent() {
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = measurementState.statusLabel.resolve(),
+            text = uiState.statusLabel.resolve(),
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.align(Alignment.Start),
         )
@@ -156,7 +157,7 @@ private fun ReadyContent() {
                     style = MaterialTheme.typography.headlineMedium,
                 )
                 Text(
-                    text = measurementState.currentSpeedLabel.resolve(),
+                    text = uiState.currentSpeedLabel.resolve(),
                     fontSize = 56.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = 20.dp),
@@ -167,15 +168,15 @@ private fun ReadyContent() {
                     modifier = Modifier.padding(top = 20.dp),
                 )
                 Text(
-                    text = measurementState.accuracyLabel.resolve(),
+                    text = uiState.accuracyLabel.resolve(),
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(top = 8.dp),
                 )
                 Spacer(modifier = Modifier.height(28.dp))
-                StatsSection(measurementState = measurementState)
+                StatsSection(measurementState = uiState)
                 Spacer(modifier = Modifier.height(28.dp))
                 SessionControls(
-                    isRunning = measurementState.isRunning,
+                    isRunning = uiState.isRunning,
                     onStart = measurementState::startSession,
                     onStop = measurementState::stopSession,
                     onReset = measurementState::resetSession,
@@ -283,21 +284,19 @@ private enum class ScreenState {
 }
 
 @Composable
-private fun rememberMeasurementState(): MeasurementUiState {
+private fun rememberMeasurementState(): MeasurementStateHolder {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val locationClient = remember(context) { FastLocationClient(context) }
-    var measurementState by remember(context) {
-        mutableStateOf(context.defaultMeasurementUiState())
+    val measurementState = remember(context) {
+        MeasurementStateHolder(context.defaultMeasurementUiState())
     }
 
     DisposableEffect(lifecycleOwner, locationClient) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_START -> {
-                    locationClient.start { reading ->
-                        measurementState = measurementState.consume(reading)
-                    }
+                    locationClient.start(measurementState::consume)
                 }
                 Lifecycle.Event.ON_STOP -> {
                     locationClient.stop()
@@ -308,9 +307,7 @@ private fun rememberMeasurementState(): MeasurementUiState {
 
         lifecycleOwner.lifecycle.addObserver(observer)
         if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
-            locationClient.start { reading ->
-                measurementState = measurementState.consume(reading)
-            }
+            locationClient.start(measurementState::consume)
         }
 
         onDispose {
@@ -320,6 +317,27 @@ private fun rememberMeasurementState(): MeasurementUiState {
     }
 
     return measurementState
+}
+
+private class MeasurementStateHolder(initialState: MeasurementUiState) {
+    var uiState by mutableStateOf(initialState)
+        private set
+
+    fun startSession() {
+        uiState = uiState.startSession()
+    }
+
+    fun stopSession() {
+        uiState = uiState.stopSession()
+    }
+
+    fun resetSession() {
+        uiState = uiState.resetSession()
+    }
+
+    fun consume(reading: LocationReading) {
+        uiState = uiState.consume(reading)
+    }
 }
 
 /**
