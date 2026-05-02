@@ -5,5 +5,8 @@
     <string name="permission_rationale">Grant precise location so the app can read GPS-based speed and readiness information.</string>
     <string name="permission_cta">Grant permission</string>
     <string name="permission_settings_cta">Open app settings</string>
+    <string name="gps_disabled_title">Location services disabled</string>
+    <string name="gps_disabled_message">Turn on GPS or location services so the app can receive a fix when tracking is added.</string>
+    <string name="gps_settings_cta">Open location settings</string>
     <string name="placeholder_speed">0 km/h</string>
 </resources>

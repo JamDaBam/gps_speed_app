@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
+import android.location.LocationManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
@@ -21,7 +22,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberLauncherForActivityResult
@@ -35,6 +36,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.slidespeed.ui.theme.SlideSpeedTheme
 
 class MainActivity : ComponentActivity() {
@@ -56,22 +60,30 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun SlideSpeedApp() {
     val context = LocalContext.current
-    var permissionState by rememberSaveable {
-        mutableStateOf(getLocationPermissionState(context))
-    }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var screenState by rememberSaveable { mutableStateOf(getScreenState(context)) }
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
     ) {
-        permissionState = getLocationPermissionState(context)
+        screenState = getScreenState(context)
     }
 
-    LaunchedEffect(Unit) {
-        permissionState = getLocationPermissionState(context)
+    DisposableEffect(lifecycleOwner, context) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                screenState = getScreenState(context)
+            }
+        }
+
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
-    when (permissionState) {
-        LocationPermissionState.Granted -> ReadyPlaceholder()
-        LocationPermissionState.Denied -> PermissionRequiredContent(
+    when (screenState) {
+        ScreenState.Ready -> ReadyContent()
+        ScreenState.PermissionDenied -> PermissionRequiredContent(
             title = context.getString(R.string.permission_title),
             message = context.getString(R.string.permission_message),
             buttonLabel = context.getString(R.string.permission_cta),
@@ -82,39 +94,57 @@ private fun SlideSpeedApp() {
                 permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
             },
         )
-        LocationPermissionState.PermanentlyDenied -> PermissionRequiredContent(
+        ScreenState.PermissionPermanentlyDenied -> PermissionRequiredContent(
             title = context.getString(R.string.permission_title),
             message = context.getString(R.string.permission_rationale),
             buttonLabel = context.getString(R.string.permission_settings_cta),
             onAction = { context.openAppSettings() },
         )
+        ScreenState.GpsDisabled -> PermissionRequiredContent(
+            title = context.getString(R.string.gps_disabled_title),
+            message = context.getString(R.string.gps_disabled_message),
+            buttonLabel = context.getString(R.string.gps_settings_cta),
+            onAction = { context.openLocationSettings() },
+        )
     }
 }
 
 @Composable
-private fun ReadyPlaceholder() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center,
+private fun ReadyContent() {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
+        Text(
+            text = "GPS ready",
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.align(Alignment.Start),
+        )
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
         ) {
-            Text(
-                text = "Slide Speed",
-                style = MaterialTheme.typography.headlineMedium,
-            )
-            Text(
-                text = "0 km/h",
-                fontSize = 56.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 20.dp),
-            )
-            Text(
-                text = "Permission granted. GPS readiness handling is the next piece.",
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.padding(top = 20.dp),
-            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = "Slide Speed",
+                    style = MaterialTheme.typography.headlineMedium,
+                )
+                Text(
+                    text = "0 km/h",
+                    fontSize = 56.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 20.dp),
+                )
+                Text(
+                    text = "Permission is granted and GPS is enabled. Tracking starts in the next step.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(top = 20.dp),
+                )
+            }
         }
     }
 }
@@ -159,34 +189,43 @@ private fun SlideSpeedAppPreview() {
     }
 }
 
-private enum class LocationPermissionState {
-    Granted,
-    Denied,
-    PermanentlyDenied,
+private enum class ScreenState {
+    Ready,
+    PermissionDenied,
+    PermissionPermanentlyDenied,
+    GpsDisabled,
 }
 
-private fun getLocationPermissionState(context: Context): LocationPermissionState {
+/**
+ * Derives the prerequisite state for the app before any GPS measurement starts.
+ * Step 2 only cares about permission and whether location services are enabled.
+ */
+private fun getScreenState(context: Context): ScreenState {
     val hasFineLocation = ContextCompat.checkSelfPermission(
         context,
         Manifest.permission.ACCESS_FINE_LOCATION,
     ) == PackageManager.PERMISSION_GRANTED
-    if (hasFineLocation) {
-        return LocationPermissionState.Granted
+    if (!hasFineLocation) {
+        val activity = context as? ComponentActivity
+        val shouldShowRationale = activity?.shouldShowRequestPermissionRationale(
+            Manifest.permission.ACCESS_FINE_LOCATION,
+        ) ?: false
+        val hasRequestedPermission = context.permissionPreferences()
+            .getBoolean(HAS_REQUESTED_LOCATION_PERMISSION_KEY, false)
+
+        return if (shouldShowRationale) {
+            ScreenState.PermissionDenied
+        } else if (hasRequestedPermission) {
+            ScreenState.PermissionPermanentlyDenied
+        } else {
+            ScreenState.PermissionDenied
+        }
     }
 
-    val activity = context as? ComponentActivity
-    val shouldShowRationale = activity?.shouldShowRequestPermissionRationale(
-        Manifest.permission.ACCESS_FINE_LOCATION,
-    ) ?: false
-    val hasRequestedPermission = context.permissionPreferences()
-        .getBoolean(HAS_REQUESTED_LOCATION_PERMISSION_KEY, false)
-
-    return if (shouldShowRationale) {
-        LocationPermissionState.Denied
-    } else if (hasRequestedPermission) {
-        LocationPermissionState.PermanentlyDenied
+    return if (context.isLocationEnabled()) {
+        ScreenState.Ready
     } else {
-        LocationPermissionState.Denied
+        ScreenState.GpsDisabled
     }
 }
 
@@ -196,6 +235,17 @@ private fun Context.openAppSettings() {
         Uri.fromParts("package", packageName, null),
     )
     startActivity(intent)
+}
+
+private fun Context.openLocationSettings() {
+    startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+}
+
+private fun Context.isLocationEnabled(): Boolean {
+    val locationManager = getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+        ?: return false
+    return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+        locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
 }
 
 private fun Context.permissionPreferences(): SharedPreferences =

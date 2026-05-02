@@ -4,14 +4,15 @@ Minimal native Android app for short GPS-based speed measurements, intended for 
 
 ## Current status
 
-Step 1 is implemented:
+Step 2 is implemented:
 
 - Android project scaffold
 - Kotlin + Jetpack Compose app module
-- Single placeholder screen
-- Basic README and project structure
+- Runtime fine-location permission flow
+- GPS/location-services enabled state handling
+- Minimal shell UI for `permission needed`, `GPS disabled`, and `ready`
 
-GPS permissions, location tracking, session stats, and GNSS status handling are not implemented yet.
+Location tracking, session stats, and GNSS status handling are not implemented yet.
 
 ## Planned app features
 
@@ -24,7 +25,7 @@ GPS permissions, location tracking, session stats, and GNSS status handling are 
 
 ## Build and run
 
-This repository currently contains the Android source scaffold only.
+This repository currently contains the app scaffold plus the permission and GPS-readiness prerequisite flow.
 
 To run it:
 
@@ -37,6 +38,15 @@ If you prefer CLI builds, generate or add a Gradle wrapper first, then run:
 ```bash
 ./gradlew assembleDebug
 ```
+
+## How to test Step 2
+
+1. Launch the app on a device or emulator with Google Play services or standard Android location settings.
+2. On first launch, confirm the app asks for precise location permission.
+3. Deny permission once and verify the app keeps showing the permission-required state with a retry button.
+4. Deny permission permanently and verify the app offers a button to open app settings.
+5. Grant permission with location services turned off and verify the app shows the GPS-disabled state.
+6. Turn location services on, return to the app, and verify it switches to the ready state without a restart.
 
 ## Accuracy note
 
