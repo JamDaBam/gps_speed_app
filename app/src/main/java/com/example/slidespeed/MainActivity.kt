@@ -52,6 +52,8 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.slidespeed.location.FastLocationClient
 import com.example.slidespeed.location.GpsStatusMonitor
 import com.example.slidespeed.location.GpsStatusSnapshot
+import com.example.slidespeed.measurement.MeasurementSnapshot
+import com.example.slidespeed.measurement.MeasurementSnapshotStorage
 import com.example.slidespeed.measurement.MeasurementTracker
 import com.example.slidespeed.ui.theme.SlideSpeedTheme
 
@@ -383,8 +385,12 @@ private fun rememberMeasurementState(): MeasurementStateHolder {
     val lifecycleOwner = LocalLifecycleOwner.current
     val locationClient = remember(context) { FastLocationClient(context) }
     val gpsStatusMonitor = remember(context) { GpsStatusMonitor(context) }
+    val snapshotStorage = remember(context) { MeasurementSnapshotStorage(context.measurementPreferences()) }
     val measurementStateHolder = remember {
-        MeasurementStateHolder()
+        MeasurementStateHolder(
+            initialSnapshot = snapshotStorage.load(),
+            snapshotStorage = snapshotStorage,
+        )
     }
 
     DisposableEffect(lifecycleOwner, locationClient, gpsStatusMonitor) {
@@ -424,8 +430,11 @@ private fun rememberMeasurementState(): MeasurementStateHolder {
     return measurementStateHolder
 }
 
-private class MeasurementStateHolder {
-    private val tracker = MeasurementTracker()
+private class MeasurementStateHolder(
+    initialSnapshot: MeasurementSnapshot,
+    private val snapshotStorage: MeasurementSnapshotStorage,
+) {
+    private val tracker = MeasurementTracker(initialSnapshot = initialSnapshot)
 
     var uiState by mutableStateOf(tracker.snapshot.toUiState())
         private set
@@ -434,26 +443,33 @@ private class MeasurementStateHolder {
 
     fun startSession() {
         tracker.startSession()
-        uiState = tracker.snapshot.toUiState()
+        syncState()
     }
 
     fun stopSession() {
         tracker.stopSession()
-        uiState = tracker.snapshot.toUiState()
+        syncState()
     }
 
     fun resetSession() {
         tracker.resetSession()
-        uiState = tracker.snapshot.toUiState()
+        snapshotStorage.clear()
+        syncState()
     }
 
     fun consume(reading: com.example.slidespeed.location.LocationReading) {
         tracker.consume(reading)
-        uiState = tracker.snapshot.toUiState()
+        syncState()
     }
 
     fun updateGpsStatus(status: GpsStatusSnapshot) {
         gpsStatus = status
+    }
+
+    private fun syncState() {
+        val snapshot = tracker.snapshot
+        uiState = snapshot.toUiState()
+        snapshotStorage.save(snapshot)
     }
 }
 
@@ -513,5 +529,9 @@ private fun Context.isLocationEnabled(): Boolean {
 private fun Context.permissionPreferences(): SharedPreferences =
     getSharedPreferences(PERMISSION_PREFS_NAME, Context.MODE_PRIVATE)
 
+private fun Context.measurementPreferences(): SharedPreferences =
+    getSharedPreferences(MEASUREMENT_PREFS_NAME, Context.MODE_PRIVATE)
+
 private const val PERMISSION_PREFS_NAME = "slide_speed_permissions"
+private const val MEASUREMENT_PREFS_NAME = "slide_speed_measurements"
 private const val HAS_REQUESTED_LOCATION_PERMISSION_KEY = "has_requested_location_permission"
