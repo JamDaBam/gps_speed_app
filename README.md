@@ -1,4 +1,4 @@
-# Rutschentacho
+# Sauseschaf
 
 Minimale native Android-App fur kurze GPS-basierte Geschwindigkeitsmessungen, gedacht fur spielerische Anwendungsfalle wie das Messen einer Rutschfahrt.
 
