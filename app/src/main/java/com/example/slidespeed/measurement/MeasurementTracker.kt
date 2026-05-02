@@ -157,7 +157,7 @@ class LocationReadingValidator(
         }
 
         val distanceMeters = distanceMetersBetween(previousSessionReading, reading)
-        val segmentSpeedKmh = distanceMeters / (elapsedMillis / MILLIS_PER_HOUR)
+        val segmentSpeedKmh = distanceMeters / METERS_PER_KILOMETER / (elapsedMillis / MILLIS_PER_HOUR)
         return segmentSpeedKmh <= MAX_SEGMENT_SPEED_KMH
     }
 }
