@@ -8,8 +8,6 @@
     <string name="gps_disabled_title">Standortdienste deaktiviert</string>
     <string name="gps_disabled_message">Aktiviere GPS oder Standortdienste, damit die App schnelle Geschwindigkeitsupdates empfangen kann.</string>
     <string name="gps_settings_cta">Standorteinstellungen offnen</string>
-    <string name="gps_ready_title">GPS bereit</string>
-    <string name="ready_headline">Rutschentacho</string>
     <string name="placeholder_speed">0 km/h</string>
     <string name="current_speed_label">Aktuelle Geschwindigkeit</string>
     <string name="session_ready">Bereit fur eine neue Messung</string>
@@ -26,11 +24,11 @@
     <string name="gps_quality_medium">GPS: Mittel</string>
     <string name="gps_quality_poor">GPS: Schlecht</string>
     <string name="gps_quality_no_fix">GPS: Kein Fix</string>
-    <string name="distance_value_meters">Distanz: %1$d m</string>
-    <string name="distance_value_km">Distanz: %1$s km</string>
-    <string name="average_speed_value">Durchschnitt: %1$d km/h</string>
-    <string name="max_speed_value">Maximum: %1$d km/h</string>
+    <string name="distance_label">Distanz</string>
+    <string name="average_speed_label">Durchschnitt</string>
+    <string name="max_speed_label">Maximum</string>
     <string name="start_button">Start</string>
     <string name="stop_button">Stopp</string>
     <string name="reset_button">Zurucksetzen</string>
+    <string name="measurement_note">Hinweis: Bei sehr kurzen Fahrten konnen GPS-Geschwindigkeit und Distanz deutlich schwanken. Satellitenstatus und Genauigkeit helfen bei der Einordnung.</string>
 </resources>

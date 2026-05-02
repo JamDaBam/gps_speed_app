@@ -4,7 +4,7 @@ Minimale native Android-App fur kurze GPS-basierte Geschwindigkeitsmessungen, ge
 
 ## Aktueller Stand
 
-Schritt 5 ist umgesetzt:
+Schritt 6 ist umgesetzt:
 
 - Android-Projektgrundgerust
 - App-Modul mit Kotlin und Jetpack Compose
@@ -15,6 +15,7 @@ Schritt 5 ist umgesetzt:
 - Sitzungssteuerung mit `Start`, `Stopp` und `Zurucksetzen`
 - Sitzungsstatistiken fur Distanz, Durchschnitt und Maximum
 - Kleine GPS-Statusleiste mit Satellitenzahl, GPS-Qualitat und Genauigkeit
+- Verdichtete Anzeige fur die Nutzung auf einen Blick mit grosser Zentralgeschwindigkeit und kurzem Genauigkeitshinweis
 
 ## Geplante App-Funktionen
 
@@ -41,7 +42,7 @@ Falls du lieber uber die Kommandozeile baust, richte zuerst den Gradle-Wrapper e
 ./gradlew assembleDebug
 ```
 
-## So testest du Schritt 5
+## So testest du Schritt 6
 
 1. Starte die App auf einem Gerat oder Emulator mit Google-Play-Diensten oder normalen Android-Standorteinstellungen.
 2. Prufe beim ersten Start, dass die App nach der genauen Standortberechtigung fragt.
@@ -56,6 +57,8 @@ Falls du lieber uber die Kommandozeile baust, richte zuerst den Gradle-Wrapper e
 11. Setze zuruck und prufe, dass Distanz, Durchschnitt und Maximum wieder auf den Ausgangszustand gehen.
 12. Prufe, dass die obere Statusleiste `Sat`, `GPS` und Genauigkeit anzeigt und sich bei besserem oder schlechterem Empfang verandert.
 13. Prufe, dass die App im Hintergrund keine Updates mehr verarbeitet.
+14. Prufe, dass die aktuelle Geschwindigkeit zentral dominant bleibt und die drei Statistik-Kacheln darunter auch wahrend kurzer Fahrten schnell erfassbar sind.
+15. Prufe, dass der Hinweistext zur GPS-Ungenauigkeit am unteren Rand sichtbar bleibt.
 
 ## Hinweis zur Genauigkeit
 

@@ -136,7 +136,7 @@ private fun ReadyContent() {
         modifier = Modifier
             .fillMaxSize()
             .windowInsetsPadding(WindowInsets.statusBars)
-            .padding(24.dp),
+            .padding(horizontal = 20.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         GpsStatusBar(
@@ -144,45 +144,40 @@ private fun ReadyContent() {
             accuracyLabel = uiState.statusBarAccuracyLabel.resolve(),
             qualityLabel = gpsStatus.toQualityLabel(uiState.currentAccuracyMeters).resolve(),
         )
-        Spacer(modifier = Modifier.height(12.dp))
-        Text(
-            text = stringResource(R.string.gps_ready_title),
-            style = MaterialTheme.typography.labelLarge,
-            modifier = Modifier.align(Alignment.Start),
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = uiState.statusLabel.resolve(),
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.align(Alignment.Start),
-        )
         Box(
             modifier = Modifier
                 .weight(1f)
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .padding(top = 16.dp),
             contentAlignment = Alignment.Center,
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
-                    text = stringResource(R.string.ready_headline),
-                    style = MaterialTheme.typography.headlineMedium,
+                    text = uiState.statusLabel.resolve(),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
                 )
                 Text(
                     text = uiState.currentSpeedLabel.resolve(),
-                    fontSize = 56.sp,
+                    fontSize = 88.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = 20.dp),
                 )
                 Text(
                     text = stringResource(R.string.current_speed_label),
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(top = 20.dp),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(top = 8.dp),
                 )
-                Spacer(modifier = Modifier.height(28.dp))
+                Text(
+                    text = uiState.statusBarAccuracyLabel.resolve(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                Spacer(modifier = Modifier.height(32.dp))
                 StatsSection(measurementState = uiState)
-                Spacer(modifier = Modifier.height(28.dp))
+                Spacer(modifier = Modifier.height(24.dp))
                 SessionControls(
                     isRunning = uiState.isRunning,
                     onStart = measurementState::startSession,
@@ -191,6 +186,11 @@ private fun ReadyContent() {
                 )
             }
         }
+        Text(
+            text = stringResource(R.string.measurement_note),
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 
@@ -200,44 +200,84 @@ private fun GpsStatusBar(
     accuracyLabel: String,
     qualityLabel: String,
 ) {
-    Row(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        tonalElevation = 2.dp,
+        shape = MaterialTheme.shapes.medium,
     ) {
-        Text(
-            text = gpsStatus.toSatellitesLabel().resolve(),
-            style = MaterialTheme.typography.labelMedium,
-        )
-        Text(
-            text = qualityLabel,
-            style = MaterialTheme.typography.labelMedium,
-        )
-        Text(
-            text = accuracyLabel,
-            style = MaterialTheme.typography.labelMedium,
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = gpsStatus.toSatellitesLabel().resolve(),
+                style = MaterialTheme.typography.labelMedium,
+            )
+            Text(
+                text = qualityLabel,
+                style = MaterialTheme.typography.labelMedium,
+            )
+            Text(
+                text = accuracyLabel,
+                style = MaterialTheme.typography.labelMedium,
+            )
+        }
     }
 }
 
 @Composable
 private fun StatsSection(measurementState: MeasurementUiState) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(
-            text = measurementState.distanceLabel.resolve(),
-            style = MaterialTheme.typography.titleMedium,
+        StatTile(
+            modifier = Modifier.weight(1f),
+            label = stringResource(R.string.distance_label),
+            value = measurementState.distanceValueLabel.resolve(),
         )
-        Text(
-            text = measurementState.averageSpeedLabel.resolve(),
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.padding(top = 8.dp),
+        StatTile(
+            modifier = Modifier.weight(1f),
+            label = stringResource(R.string.average_speed_label),
+            value = measurementState.averageSpeedValueLabel.resolve(),
         )
-        Text(
-            text = measurementState.maxSpeedLabel.resolve(),
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.padding(top = 8.dp),
+        StatTile(
+            modifier = Modifier.weight(1f),
+            label = stringResource(R.string.max_speed_label),
+            value = measurementState.maxSpeedValueLabel.resolve(),
         )
+    }
+}
+
+@Composable
+private fun StatTile(
+    modifier: Modifier = Modifier,
+    label: String,
+    value: String,
+) {
+    Surface(
+        modifier = modifier,
+        tonalElevation = 2.dp,
+        shape = MaterialTheme.shapes.medium,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+        }
     }
 }
 
@@ -249,21 +289,27 @@ private fun SessionControls(
     onReset: () -> Unit,
 ) {
     Row(
+        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Button(
             onClick = onStart,
             enabled = !isRunning,
+            modifier = Modifier.weight(1f),
         ) {
             Text(stringResource(R.string.start_button))
         }
         Button(
             onClick = onStop,
             enabled = isRunning,
+            modifier = Modifier.weight(1f),
         ) {
             Text(stringResource(R.string.stop_button))
         }
-        Button(onClick = onReset) {
+        Button(
+            onClick = onReset,
+            modifier = Modifier.weight(1f),
+        ) {
             Text(stringResource(R.string.reset_button))
         }
     }
@@ -442,9 +488,9 @@ private fun Context.permissionPreferences(): SharedPreferences =
 
 private data class MeasurementUiState(
     val currentSpeedLabel: UiText,
-    val distanceLabel: UiText,
-    val averageSpeedLabel: UiText,
-    val maxSpeedLabel: UiText,
+    val distanceValueLabel: UiText,
+    val averageSpeedValueLabel: UiText,
+    val maxSpeedValueLabel: UiText,
     val statusLabel: UiText,
     val statusBarAccuracyLabel: UiText,
     val currentAccuracyMeters: Int?,
@@ -455,9 +501,9 @@ private data class MeasurementUiState(
     val lastSample: LocationReading?,
 ) {
     fun startSession(): MeasurementUiState = copy(
-        distanceLabel = 0f.toDistanceLabel(),
-        averageSpeedLabel = 0.toAverageSpeedLabel(),
-        maxSpeedLabel = 0.toMaxSpeedLabel(),
+        distanceValueLabel = 0f.toDistanceValueLabel(),
+        averageSpeedValueLabel = 0.toSpeedValueLabel(),
+        maxSpeedValueLabel = 0.toSpeedValueLabel(),
         statusLabel = UiText.Resource(R.string.session_running),
         isRunning = true,
         totalDistanceMeters = 0f,
@@ -473,9 +519,9 @@ private data class MeasurementUiState(
     )
 
     fun resetSession(): MeasurementUiState = copy(
-        distanceLabel = 0f.toDistanceLabel(),
-        averageSpeedLabel = 0.toAverageSpeedLabel(),
-        maxSpeedLabel = 0.toMaxSpeedLabel(),
+        distanceValueLabel = 0f.toDistanceValueLabel(),
+        averageSpeedValueLabel = 0.toSpeedValueLabel(),
+        maxSpeedValueLabel = 0.toSpeedValueLabel(),
         statusLabel = UiText.Resource(R.string.session_ready),
         isRunning = false,
         totalDistanceMeters = 0f,
@@ -516,9 +562,9 @@ private data class MeasurementUiState(
         }
 
         return liveState.copy(
-            distanceLabel = nextDistanceMeters.toDistanceLabel(),
-            averageSpeedLabel = averageSpeedKmh.roundToInt().coerceAtLeast(0).toAverageSpeedLabel(),
-            maxSpeedLabel = nextMaxSpeedKmh.roundToInt().coerceAtLeast(0).toMaxSpeedLabel(),
+            distanceValueLabel = nextDistanceMeters.toDistanceValueLabel(),
+            averageSpeedValueLabel = averageSpeedKmh.roundToInt().coerceAtLeast(0).toSpeedValueLabel(),
+            maxSpeedValueLabel = nextMaxSpeedKmh.roundToInt().coerceAtLeast(0).toSpeedValueLabel(),
             statusLabel = UiText.Resource(R.string.session_running),
             totalDistanceMeters = nextDistanceMeters,
             maxSpeedKmh = nextMaxSpeedKmh,
@@ -543,9 +589,7 @@ private fun UiText.resolve(): String = when (this) {
 
 private fun Int.toSpeedLabel(): UiText = UiText.Dynamic("$this km/h")
 
-private fun Int.toAverageSpeedLabel(): UiText = R.string.average_speed_value.toText(this)
-
-private fun Int.toMaxSpeedLabel(): UiText = R.string.max_speed_value.toText(this)
+private fun Int.toSpeedValueLabel(): UiText = UiText.Dynamic("$this km/h")
 
 private fun GpsStatusSnapshot.toSatellitesLabel(): UiText = when {
     usedSatellites != null && visibleSatellites != null ->
@@ -568,22 +612,22 @@ private fun GpsStatusSnapshot.toQualityLabel(currentAccuracyMeters: Int?): UiTex
     return UiText.Resource(qualityResId)
 }
 
-private fun Float.toDistanceLabel(): UiText {
+private fun Float.toDistanceValueLabel(): UiText {
     val roundedMeters = roundToInt().coerceAtLeast(0)
     return if (roundedMeters >= 1000) {
-        R.string.distance_value_km.toText(
-            String.format(Locale.GERMANY, "%.2f", roundedMeters / METERS_PER_KILOMETER),
+        UiText.Dynamic(
+            "${String.format(Locale.GERMANY, "%.2f", roundedMeters / METERS_PER_KILOMETER)} km",
         )
     } else {
-        R.string.distance_value_meters.toText(roundedMeters)
+        UiText.Dynamic("$roundedMeters m")
     }
 }
 
 private fun Context.defaultMeasurementUiState(): MeasurementUiState = MeasurementUiState(
     currentSpeedLabel = 0.toSpeedLabel(),
-    distanceLabel = 0f.toDistanceLabel(),
-    averageSpeedLabel = 0.toAverageSpeedLabel(),
-    maxSpeedLabel = 0.toMaxSpeedLabel(),
+    distanceValueLabel = 0f.toDistanceValueLabel(),
+    averageSpeedValueLabel = 0.toSpeedValueLabel(),
+    maxSpeedValueLabel = 0.toSpeedValueLabel(),
     statusLabel = UiText.Resource(R.string.session_ready),
     statusBarAccuracyLabel = UiText.Resource(R.string.status_accuracy_unavailable),
     currentAccuracyMeters = null,
