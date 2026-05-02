@@ -18,10 +18,12 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -270,22 +272,30 @@ private fun GpsStatusBar(
 @Composable
 private fun StatsSection(measurementState: MeasurementUiState) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         StatTile(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight(),
             label = stringResource(R.string.distance_label),
             primaryValue = measurementState.distanceValueLabel.resolve(),
         )
         StatTile(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight(),
             label = stringResource(R.string.average_speed_label),
             primaryValue = measurementState.averageSpeedPrimaryLabel.resolve(),
             secondaryValue = measurementState.averageSpeedSecondaryLabel.resolve(),
         )
         StatTile(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight(),
             label = stringResource(R.string.max_speed_label),
             primaryValue = measurementState.maxSpeedPrimaryLabel.resolve(),
             secondaryValue = measurementState.maxSpeedSecondaryLabel.resolve(),
