@@ -240,17 +240,19 @@ private fun StatsSection(measurementState: MeasurementUiState) {
         StatTile(
             modifier = Modifier.weight(1f),
             label = stringResource(R.string.distance_label),
-            value = measurementState.distanceValueLabel.resolve(),
+            primaryValue = measurementState.distanceValueLabel.resolve(),
         )
         StatTile(
             modifier = Modifier.weight(1f),
             label = stringResource(R.string.average_speed_label),
-            value = measurementState.averageSpeedValueLabel.resolve(),
+            primaryValue = measurementState.averageSpeedPrimaryLabel.resolve(),
+            secondaryValue = measurementState.averageSpeedSecondaryLabel.resolve(),
         )
         StatTile(
             modifier = Modifier.weight(1f),
             label = stringResource(R.string.max_speed_label),
-            value = measurementState.maxSpeedValueLabel.resolve(),
+            primaryValue = measurementState.maxSpeedPrimaryLabel.resolve(),
+            secondaryValue = measurementState.maxSpeedSecondaryLabel.resolve(),
         )
     }
 }
@@ -259,7 +261,8 @@ private fun StatsSection(measurementState: MeasurementUiState) {
 private fun StatTile(
     modifier: Modifier = Modifier,
     label: String,
-    value: String,
+    primaryValue: String,
+    secondaryValue: String? = null,
 ) {
     Surface(
         modifier = modifier,
@@ -277,10 +280,18 @@ private fun StatTile(
                 style = MaterialTheme.typography.labelMedium,
             )
             Text(
-                text = value,
+                text = primaryValue,
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(top = 8.dp),
             )
+            if (secondaryValue != null) {
+                Text(
+                    text = secondaryValue,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
         }
     }
 }

@@ -13,8 +13,10 @@ data class MeasurementUiState(
     val currentSpeedPrimaryLabel: UiText,
     val currentSpeedSecondaryLabel: UiText,
     val distanceValueLabel: UiText,
-    val averageSpeedValueLabel: UiText,
-    val maxSpeedValueLabel: UiText,
+    val averageSpeedPrimaryLabel: UiText,
+    val averageSpeedSecondaryLabel: UiText,
+    val maxSpeedPrimaryLabel: UiText,
+    val maxSpeedSecondaryLabel: UiText,
     val statusLabel: UiText,
     val statusBarAccuracyLabel: UiText,
     val currentAccuracyMeters: Int?,
@@ -25,8 +27,10 @@ fun MeasurementSnapshot.toUiState(): MeasurementUiState = MeasurementUiState(
     currentSpeedPrimaryLabel = currentSpeedMps.toMetersPerSecondLabel(),
     currentSpeedSecondaryLabel = currentSpeedKmh.toSpeedValueLabel(),
     distanceValueLabel = totalDistanceMeters.toDistanceValueLabel(),
-    averageSpeedValueLabel = averageSpeedKmh.toSpeedValueLabel(),
-    maxSpeedValueLabel = maxSpeedKmh.toSpeedValueLabel(),
+    averageSpeedPrimaryLabel = averageSpeedKmh.toMetersPerSecondLabel(),
+    averageSpeedSecondaryLabel = averageSpeedKmh.toSpeedValueLabel(),
+    maxSpeedPrimaryLabel = maxSpeedKmh.toMetersPerSecondLabel(),
+    maxSpeedSecondaryLabel = maxSpeedKmh.toSpeedValueLabel(),
     statusLabel = when (sessionStatus) {
         SessionStatus.Ready -> UiText.Resource(R.string.session_ready)
         SessionStatus.Running -> UiText.Resource(R.string.session_running)
@@ -56,6 +60,8 @@ fun Int.toSpeedValueLabel(): UiText = UiText.Dynamic("$this km/h")
 fun Float.toMetersPerSecondLabel(): UiText = UiText.Dynamic(
     "${String.format(Locale.GERMANY, "%.1f", coerceAtLeast(0f))} m/s",
 )
+
+fun Int.toMetersPerSecondLabel(): UiText = (coerceAtLeast(0) / KMH_PER_MPS).toMetersPerSecondLabel()
 
 fun GpsStatusSnapshot.toSatellitesLabel(): UiText = when {
     usedSatellites != null && visibleSatellites != null ->
@@ -92,3 +98,4 @@ fun Float.toDistanceValueLabel(): UiText {
 fun Int.toText(vararg args: Any): UiText = UiText.Formatted(this, args.toList())
 
 private const val METERS_PER_KILOMETER = 1_000f
+private const val KMH_PER_MPS = 3.6f
