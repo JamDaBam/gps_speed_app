@@ -12,6 +12,7 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 data class MeasurementSnapshot(
+    val currentSpeedMps: Float = 0f,
     val currentSpeedKmh: Int = 0,
     val currentAccuracyMeters: Int? = null,
     val sessionStatus: SessionStatus = SessionStatus.Ready,
@@ -37,6 +38,7 @@ class MeasurementTracker(
     fun startSession() {
         snapshot = when (snapshot.sessionStatus) {
             SessionStatus.Ready -> MeasurementSnapshot(
+                currentSpeedMps = snapshot.currentSpeedMps,
                 currentSpeedKmh = snapshot.currentSpeedKmh,
                 currentAccuracyMeters = snapshot.currentAccuracyMeters,
                 sessionStatus = SessionStatus.Running,
@@ -90,6 +92,7 @@ class MeasurementTracker(
             ?.coerceAtLeast(0f)
             ?.roundToInt()
         snapshot = snapshot.copy(
+            currentSpeedMps = reading.speedKmh.toMetersPerSecond(),
             currentSpeedKmh = reading.speedKmh.roundToInt().coerceAtLeast(0),
             currentAccuracyMeters = roundedAccuracy,
             lastAcceptedReading = reading,
@@ -134,6 +137,8 @@ class MeasurementTracker(
         return (timeMillisProvider() - pauseStartedAtMillis).coerceAtLeast(0L)
     }
 }
+
+private fun Float.toMetersPerSecond(): Float = (this / KMH_PER_MPS).coerceAtLeast(0f)
 
 enum class SessionStatus {
     Ready,
@@ -208,6 +213,7 @@ private fun Double.toRadians(): Double = this / 180.0 * PI
 
 private const val METERS_PER_KILOMETER = 1_000f
 private const val MILLIS_PER_HOUR = 3_600_000f
+private const val KMH_PER_MPS = 3.6f
 private const val EARTH_RADIUS_METERS = 6_371_000.0
 private const val MIN_LATITUDE = -90.0
 private const val MAX_LATITUDE = 90.0

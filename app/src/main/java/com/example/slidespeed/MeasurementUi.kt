@@ -10,7 +10,8 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 data class MeasurementUiState(
-    val currentSpeedLabel: UiText,
+    val currentSpeedPrimaryLabel: UiText,
+    val currentSpeedSecondaryLabel: UiText,
     val distanceValueLabel: UiText,
     val averageSpeedValueLabel: UiText,
     val maxSpeedValueLabel: UiText,
@@ -21,7 +22,8 @@ data class MeasurementUiState(
 )
 
 fun MeasurementSnapshot.toUiState(): MeasurementUiState = MeasurementUiState(
-    currentSpeedLabel = currentSpeedKmh.toSpeedLabel(),
+    currentSpeedPrimaryLabel = currentSpeedMps.toMetersPerSecondLabel(),
+    currentSpeedSecondaryLabel = currentSpeedKmh.toSpeedValueLabel(),
     distanceValueLabel = totalDistanceMeters.toDistanceValueLabel(),
     averageSpeedValueLabel = averageSpeedKmh.toSpeedValueLabel(),
     maxSpeedValueLabel = maxSpeedKmh.toSpeedValueLabel(),
@@ -49,9 +51,11 @@ fun UiText.resolve(): String = when (this) {
     is UiText.Formatted -> stringResource(resId, *args.toTypedArray())
 }
 
-fun Int.toSpeedLabel(): UiText = UiText.Dynamic("$this km/h")
-
 fun Int.toSpeedValueLabel(): UiText = UiText.Dynamic("$this km/h")
+
+fun Float.toMetersPerSecondLabel(): UiText = UiText.Dynamic(
+    "${String.format(Locale.GERMANY, "%.1f", coerceAtLeast(0f))} m/s",
+)
 
 fun GpsStatusSnapshot.toSatellitesLabel(): UiText = when {
     usedSatellites != null && visibleSatellites != null ->

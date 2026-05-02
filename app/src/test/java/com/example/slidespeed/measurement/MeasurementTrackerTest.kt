@@ -165,15 +165,19 @@ class MeasurementTrackerTest {
 
         tracker.consume(reading(timestampMillis = NOW_MILLIS - 20_000L, speedKmh = 12f, accuracyMeters = 5f))
         assertEquals(0, tracker.snapshot.currentSpeedKmh)
+        assertEquals(0f, tracker.snapshot.currentSpeedMps, 0.001f)
 
         tracker.consume(reading(timestampMillis = NOW_MILLIS, speedKmh = 14f, accuracyMeters = 5f))
         assertEquals(14, tracker.snapshot.currentSpeedKmh)
+        assertEquals(14f / 3.6f, tracker.snapshot.currentSpeedMps, 0.001f)
 
         tracker.consume(reading(timestampMillis = NOW_MILLIS - 1L, speedKmh = 20f, accuracyMeters = 5f))
         assertEquals(14, tracker.snapshot.currentSpeedKmh)
+        assertEquals(14f / 3.6f, tracker.snapshot.currentSpeedMps, 0.001f)
 
         tracker.consume(reading(timestampMillis = NOW_MILLIS + 1L, speedKmh = 20f, accuracyMeters = 5f, isMock = true))
         assertEquals(14, tracker.snapshot.currentSpeedKmh)
+        assertEquals(14f / 3.6f, tracker.snapshot.currentSpeedMps, 0.001f)
     }
 
     @Test

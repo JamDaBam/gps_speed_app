@@ -110,9 +110,9 @@ class FastLocationClient(context: Context) {
 
         val LOCATION_REQUEST: LocationRequest = LocationRequest.Builder(
             Priority.PRIORITY_HIGH_ACCURACY,
-            250L,
+            100L,
         )
-            .setMinUpdateIntervalMillis(100L)
+            .setMinUpdateIntervalMillis(50L)
             .setWaitForAccurateLocation(false)
             .setMaxUpdateDelayMillis(0L)
             .build()

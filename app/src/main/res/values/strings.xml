@@ -8,7 +8,7 @@
     <string name="gps_disabled_title">Standortdienste deaktiviert</string>
     <string name="gps_disabled_message">Aktiviere GPS oder Standortdienste, damit die App schnelle Geschwindigkeitsupdates empfangen kann.</string>
     <string name="gps_settings_cta">Standorteinstellungen öffnen</string>
-    <string name="placeholder_speed">0 km/h</string>
+    <string name="placeholder_speed">0,0 m/s</string>
     <string name="current_speed_label">Aktuelle Geschwindigkeit</string>
     <string name="session_ready">Bereit fur eine neue Messung</string>
     <string name="session_running">Messung läuft</string>

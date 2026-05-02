@@ -157,10 +157,16 @@ private fun ReadyContent() {
                     color = MaterialTheme.colorScheme.primary,
                 )
                 Text(
-                    text = uiState.currentSpeedLabel.resolve(),
+                    text = uiState.currentSpeedPrimaryLabel.resolve(),
                     fontSize = 88.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = 20.dp),
+                )
+                Text(
+                    text = uiState.currentSpeedSecondaryLabel.resolve(),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp),
                 )
                 Text(
                     text = stringResource(R.string.current_speed_label),
