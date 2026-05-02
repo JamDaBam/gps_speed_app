@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">Slide Speed</string>
+    <string name="permission_title">Location permission needed</string>
+    <string name="permission_message">Slide Speed needs location access before it can check GPS readiness or measure speed.</string>
+    <string name="permission_rationale">Grant precise location so the app can read GPS-based speed and readiness information.</string>
+    <string name="permission_cta">Grant permission</string>
+    <string name="permission_settings_cta">Open app settings</string>
+    <string name="placeholder_speed">0 km/h</string>
+</resources>
