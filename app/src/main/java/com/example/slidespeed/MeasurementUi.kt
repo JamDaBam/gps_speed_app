@@ -38,8 +38,8 @@ fun MeasurementSnapshot.toUiState(): MeasurementUiState = MeasurementUiState(
 
 sealed interface UiText {
     data class Dynamic(val value: String) : UiText
-    data class Resource(@StringRes val resId: Int) : UiText
-    data class Formatted(@StringRes val resId: Int, val args: List<Any>) : UiText
+    data class Resource(@param:StringRes val resId: Int) : UiText
+    data class Formatted(@param:StringRes val resId: Int, val args: List<Any>) : UiText
 }
 
 @Composable
