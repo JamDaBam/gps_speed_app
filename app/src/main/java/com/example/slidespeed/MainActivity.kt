@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
-import android.location.Location
 import android.location.LocationManager
 import android.net.Uri
 import android.os.Bundle
@@ -14,7 +13,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -53,10 +51,8 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.slidespeed.location.FastLocationClient
 import com.example.slidespeed.location.GpsStatusMonitor
 import com.example.slidespeed.location.GpsStatusSnapshot
-import com.example.slidespeed.location.LocationReading
+import com.example.slidespeed.measurement.MeasurementTracker
 import com.example.slidespeed.ui.theme.SlideSpeedTheme
-import java.util.Locale
-import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -128,9 +124,9 @@ private fun SlideSpeedApp() {
 
 @Composable
 private fun ReadyContent() {
-    val measurementState = rememberMeasurementState()
-    val uiState = measurementState.uiState
-    val gpsStatus = measurementState.gpsStatus
+    val measurementStateHolder = rememberMeasurementState()
+    val uiState = measurementStateHolder.uiState
+    val gpsStatus = measurementStateHolder.gpsStatus
 
     Column(
         modifier = Modifier
@@ -180,9 +176,9 @@ private fun ReadyContent() {
                 Spacer(modifier = Modifier.height(24.dp))
                 SessionControls(
                     isRunning = uiState.isRunning,
-                    onStart = measurementState::startSession,
-                    onStop = measurementState::stopSession,
-                    onReset = measurementState::resetSession,
+                    onStart = measurementStateHolder::startSession,
+                    onStop = measurementStateHolder::stopSession,
+                    onReset = measurementStateHolder::resetSession,
                 )
             }
         }
@@ -368,16 +364,19 @@ private fun rememberMeasurementState(): MeasurementStateHolder {
     val lifecycleOwner = LocalLifecycleOwner.current
     val locationClient = remember(context) { FastLocationClient(context) }
     val gpsStatusMonitor = remember(context) { GpsStatusMonitor(context) }
-    val measurementState = remember(context) {
-        MeasurementStateHolder(context.defaultMeasurementUiState())
+    val measurementStateHolder = remember {
+        MeasurementStateHolder()
     }
 
     DisposableEffect(lifecycleOwner, locationClient, gpsStatusMonitor) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_START -> {
-                    locationClient.start(measurementState::consume)
-                    gpsStatusMonitor.start(measurementState::updateGpsStatus)
+                    locationClient.start(
+                        onReading = measurementStateHolder::consume,
+                        onFailure = { measurementStateHolder.updateGpsStatus(GpsStatusSnapshot(hasFix = false)) },
+                    )
+                    gpsStatusMonitor.start(measurementStateHolder::updateGpsStatus)
                 }
                 Lifecycle.Event.ON_STOP -> {
                     locationClient.stop()
@@ -389,8 +388,11 @@ private fun rememberMeasurementState(): MeasurementStateHolder {
 
         lifecycleOwner.lifecycle.addObserver(observer)
         if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
-            locationClient.start(measurementState::consume)
-            gpsStatusMonitor.start(measurementState::updateGpsStatus)
+            locationClient.start(
+                onReading = measurementStateHolder::consume,
+                onFailure = { measurementStateHolder.updateGpsStatus(GpsStatusSnapshot(hasFix = false)) },
+            )
+            gpsStatusMonitor.start(measurementStateHolder::updateGpsStatus)
         }
 
         onDispose {
@@ -400,33 +402,35 @@ private fun rememberMeasurementState(): MeasurementStateHolder {
         }
     }
 
-    return measurementState
+    return measurementStateHolder
 }
 
-/**
- * Keeps the live GPS feed separate from the session aggregates so the central speed display
- * can stay active even while no measurement is running.
- */
-private class MeasurementStateHolder(initialState: MeasurementUiState) {
-    var uiState by mutableStateOf(initialState)
+private class MeasurementStateHolder {
+    private val tracker = MeasurementTracker()
+
+    var uiState by mutableStateOf(tracker.snapshot.toUiState())
         private set
     var gpsStatus by mutableStateOf(GpsStatusSnapshot())
         private set
 
     fun startSession() {
-        uiState = uiState.startSession()
+        tracker.startSession()
+        uiState = tracker.snapshot.toUiState()
     }
 
     fun stopSession() {
-        uiState = uiState.stopSession()
+        tracker.stopSession()
+        uiState = tracker.snapshot.toUiState()
     }
 
     fun resetSession() {
-        uiState = uiState.resetSession()
+        tracker.resetSession()
+        uiState = tracker.snapshot.toUiState()
     }
 
-    fun consume(reading: LocationReading) {
-        uiState = uiState.consume(reading)
+    fun consume(reading: com.example.slidespeed.location.LocationReading) {
+        tracker.consume(reading)
+        uiState = tracker.snapshot.toUiState()
     }
 
     fun updateGpsStatus(status: GpsStatusSnapshot) {
@@ -490,182 +494,5 @@ private fun Context.isLocationEnabled(): Boolean {
 private fun Context.permissionPreferences(): SharedPreferences =
     getSharedPreferences(PERMISSION_PREFS_NAME, Context.MODE_PRIVATE)
 
-private data class MeasurementUiState(
-    val currentSpeedLabel: UiText,
-    val distanceValueLabel: UiText,
-    val averageSpeedValueLabel: UiText,
-    val maxSpeedValueLabel: UiText,
-    val statusLabel: UiText,
-    val statusBarAccuracyLabel: UiText,
-    val currentAccuracyMeters: Int?,
-    val isRunning: Boolean,
-    val totalDistanceMeters: Float,
-    val maxSpeedKmh: Float,
-    val sessionStartTimeMillis: Long?,
-    val lastSample: LocationReading?,
-) {
-    fun startSession(): MeasurementUiState = copy(
-        distanceValueLabel = 0f.toDistanceValueLabel(),
-        averageSpeedValueLabel = 0.toSpeedValueLabel(),
-        maxSpeedValueLabel = 0.toSpeedValueLabel(),
-        statusLabel = UiText.Resource(R.string.session_running),
-        isRunning = true,
-        totalDistanceMeters = 0f,
-        maxSpeedKmh = 0f,
-        sessionStartTimeMillis = null,
-        lastSample = null,
-    )
-
-    fun stopSession(): MeasurementUiState = copy(
-        statusLabel = UiText.Resource(R.string.session_stopped),
-        isRunning = false,
-        lastSample = null,
-    )
-
-    fun resetSession(): MeasurementUiState = copy(
-        distanceValueLabel = 0f.toDistanceValueLabel(),
-        averageSpeedValueLabel = 0.toSpeedValueLabel(),
-        maxSpeedValueLabel = 0.toSpeedValueLabel(),
-        statusLabel = UiText.Resource(R.string.session_ready),
-        isRunning = false,
-        totalDistanceMeters = 0f,
-        maxSpeedKmh = 0f,
-        sessionStartTimeMillis = null,
-        lastSample = null,
-    )
-
-    /**
-     * Keeps the live speed visible at all times and only aggregates session metrics while running.
-     */
-    fun consume(reading: LocationReading): MeasurementUiState {
-        val roundedSpeed = reading.speedKmh.roundToInt().coerceAtLeast(0)
-        val roundedAccuracy = reading.accuracyMeters?.roundToInt()
-        val liveState = copy(
-            currentSpeedLabel = roundedSpeed.toSpeedLabel(),
-            statusBarAccuracyLabel = roundedAccuracy?.let { R.string.status_accuracy_value.toText(it) }
-                ?: UiText.Resource(R.string.status_accuracy_unavailable),
-            currentAccuracyMeters = roundedAccuracy,
-        )
-
-        if (!isRunning) {
-            return liveState
-        }
-
-        // Distance is only accumulated from points that are accurate enough for short rides.
-        val nextStartTimeMillis = sessionStartTimeMillis ?: reading.timestampMillis
-        val distanceIncrementMeters = lastSample
-            ?.takeIf { previous -> isTrustedForDistance(previous) && isTrustedForDistance(reading) }
-            ?.distanceTo(reading)
-            ?: 0f
-        val nextDistanceMeters = totalDistanceMeters + distanceIncrementMeters
-        val nextMaxSpeedKmh = maxOf(maxSpeedKmh, reading.speedKmh.coerceAtLeast(0f))
-        val durationMillis = (reading.timestampMillis - nextStartTimeMillis).coerceAtLeast(0L)
-        val averageSpeedKmh = if (durationMillis > 0L) {
-            nextDistanceMeters / METERS_PER_KILOMETER / (durationMillis / MILLIS_PER_HOUR)
-        } else {
-            0f
-        }
-
-        return liveState.copy(
-            distanceValueLabel = nextDistanceMeters.toDistanceValueLabel(),
-            averageSpeedValueLabel = averageSpeedKmh.roundToInt().coerceAtLeast(0).toSpeedValueLabel(),
-            maxSpeedValueLabel = nextMaxSpeedKmh.roundToInt().coerceAtLeast(0).toSpeedValueLabel(),
-            statusLabel = UiText.Resource(R.string.session_running),
-            totalDistanceMeters = nextDistanceMeters,
-            maxSpeedKmh = nextMaxSpeedKmh,
-            sessionStartTimeMillis = nextStartTimeMillis,
-            lastSample = reading,
-        )
-    }
-}
-
-private sealed interface UiText {
-    data class Dynamic(val value: String) : UiText
-    data class Resource(@StringRes val resId: Int) : UiText
-    data class Formatted(@StringRes val resId: Int, val args: List<Any>) : UiText
-}
-
-@Composable
-private fun UiText.resolve(): String = when (this) {
-    is UiText.Dynamic -> value
-    is UiText.Resource -> stringResource(resId)
-    is UiText.Formatted -> stringResource(resId, *args.toTypedArray())
-}
-
-private fun Int.toSpeedLabel(): UiText = UiText.Dynamic("$this km/h")
-
-private fun Int.toSpeedValueLabel(): UiText = UiText.Dynamic("$this km/h")
-
-private fun GpsStatusSnapshot.toSatellitesLabel(): UiText = when {
-    usedSatellites != null && visibleSatellites != null ->
-        R.string.gps_satellites_used_visible.toText(usedSatellites, visibleSatellites)
-    visibleSatellites != null ->
-        R.string.gps_satellites_visible_only.toText(visibleSatellites)
-    else -> UiText.Resource(R.string.gps_satellites_unavailable)
-}
-
-private fun GpsStatusSnapshot.toQualityLabel(currentAccuracyMeters: Int?): UiText {
-    // The quality buckets are intentionally simple: the app should hint at trustworthiness,
-    // not pretend to provide a scientific confidence score.
-    val qualityResId = when {
-        !hasFix -> R.string.gps_quality_no_fix
-        currentAccuracyMeters != null && currentAccuracyMeters <= 10 && (usedSatellites ?: 0) >= 4 ->
-            R.string.gps_quality_good
-        currentAccuracyMeters != null && currentAccuracyMeters <= 20 && (usedSatellites ?: 0) >= 3 ->
-            R.string.gps_quality_medium
-        usedSatellites != null && usedSatellites >= 4 -> R.string.gps_quality_medium
-        else -> R.string.gps_quality_poor
-    }
-    return UiText.Resource(qualityResId)
-}
-
-private fun Float.toDistanceValueLabel(): UiText {
-    val roundedMeters = roundToInt().coerceAtLeast(0)
-    return if (roundedMeters >= 1000) {
-        UiText.Dynamic(
-            "${String.format(Locale.GERMANY, "%.2f", roundedMeters / METERS_PER_KILOMETER)} km",
-        )
-    } else {
-        UiText.Dynamic("$roundedMeters m")
-    }
-}
-
-private fun Context.defaultMeasurementUiState(): MeasurementUiState = MeasurementUiState(
-    currentSpeedLabel = 0.toSpeedLabel(),
-    distanceValueLabel = 0f.toDistanceValueLabel(),
-    averageSpeedValueLabel = 0.toSpeedValueLabel(),
-    maxSpeedValueLabel = 0.toSpeedValueLabel(),
-    statusLabel = UiText.Resource(R.string.session_ready),
-    statusBarAccuracyLabel = UiText.Resource(R.string.status_accuracy_unavailable),
-    currentAccuracyMeters = null,
-    isRunning = false,
-    totalDistanceMeters = 0f,
-    maxSpeedKmh = 0f,
-    sessionStartTimeMillis = null,
-    lastSample = null,
-)
-
-private fun Int.toText(vararg args: Any): UiText = UiText.Formatted(this, args.toList())
-
-private fun isTrustedForDistance(reading: LocationReading): Boolean {
-    val accuracyMeters = reading.accuracyMeters ?: return false
-    return accuracyMeters <= MAX_DISTANCE_ACCURACY_METERS
-}
-
-private fun LocationReading.distanceTo(other: LocationReading): Float {
-    val result = FloatArray(1)
-    Location.distanceBetween(
-        latitude,
-        longitude,
-        other.latitude,
-        other.longitude,
-        result,
-    )
-    return result[0]
-}
-
 private const val PERMISSION_PREFS_NAME = "slide_speed_permissions"
 private const val HAS_REQUESTED_LOCATION_PERMISSION_KEY = "has_requested_location_permission"
-private const val MAX_DISTANCE_ACCURACY_METERS = 25f
-private const val METERS_PER_KILOMETER = 1_000f
-private const val MILLIS_PER_HOUR = 3_600_000f

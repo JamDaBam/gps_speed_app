@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.location.Location
 import android.os.Looper
+import androidx.core.location.LocationCompat
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
@@ -19,8 +20,14 @@ class FastLocationClient(context: Context) {
     private var locationCallback: LocationCallback? = null
 
     @SuppressLint("MissingPermission")
-    fun start(onReading: (LocationReading) -> Unit) {
-        if (locationCallback != null) {
+    fun start(
+        onReading: (LocationReading) -> Unit,
+        onFailure: () -> Unit,
+    ) {
+        if (locationCallback != null || !appContext.hasLocationPermission()) {
+            if (!appContext.hasLocationPermission()) {
+                onFailure()
+            }
             return
         }
 
@@ -31,16 +38,27 @@ class FastLocationClient(context: Context) {
                 }
             }
         }
-        locationCallback = callback
-
-        fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-            location?.let { onReading(it.toLocationReading()) }
+        try {
+            fusedLocationClient.lastLocation
+                .addOnSuccessListener { location ->
+                    location?.let { onReading(it.toLocationReading()) }
+                }
+                .addOnFailureListener {
+                    onFailure()
+                }
+            fusedLocationClient.requestLocationUpdates(
+                LOCATION_REQUEST,
+                callback,
+                Looper.getMainLooper(),
+            )
+            locationCallback = callback
+        } catch (_: SecurityException) {
+            locationCallback = null
+            onFailure()
+        } catch (_: IllegalStateException) {
+            locationCallback = null
+            onFailure()
         }
-        fusedLocationClient.requestLocationUpdates(
-            LOCATION_REQUEST,
-            callback,
-            Looper.getMainLooper(),
-        )
     }
 
     fun stop() {
@@ -57,6 +75,7 @@ class FastLocationClient(context: Context) {
             latitude = latitude,
             longitude = longitude,
             timestampMillis = time,
+            isMock = LocationCompat.isMock(this),
         )
     }
 
@@ -80,4 +99,5 @@ data class LocationReading(
     val latitude: Double,
     val longitude: Double,
     val timestampMillis: Long,
+    val isMock: Boolean = false,
 )

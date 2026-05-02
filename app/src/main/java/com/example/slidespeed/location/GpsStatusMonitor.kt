@@ -17,7 +17,8 @@ class GpsStatusMonitor(context: Context) {
 
     @SuppressLint("MissingPermission")
     fun start(onStatusChanged: (GpsStatusSnapshot) -> Unit) {
-        if (callback != null || locationManager == null) {
+        if (callback != null || locationManager == null || !appContext.hasLocationPermission()) {
+            onStatusChanged(GpsStatusSnapshot(hasFix = false))
             return
         }
 
@@ -51,11 +52,17 @@ class GpsStatusMonitor(context: Context) {
             }
         }
 
-        val registered = LocationManagerCompat.registerGnssStatusCallback(
-            locationManager,
-            ContextCompat.getMainExecutor(appContext),
-            gnssCallback,
-        )
+        val registered = try {
+            LocationManagerCompat.registerGnssStatusCallback(
+                locationManager,
+                ContextCompat.getMainExecutor(appContext),
+                gnssCallback,
+            )
+        } catch (_: SecurityException) {
+            false
+        } catch (_: IllegalStateException) {
+            false
+        }
 
         if (registered) {
             callback = gnssCallback

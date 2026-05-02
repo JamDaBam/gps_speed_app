@@ -40,6 +40,20 @@ Falls du lieber uber die Kommandozeile baust:
 
 Die App behandelt fehlende Berechtigungen und deaktivierte Standortdienste direkt in der Oberflache.
 
+## Datenschutz und Backup-Verhalten
+
+- Die App sendet keine Messdaten an einen Server.
+- Sitzungsdaten werden nur im Arbeitsspeicher gehalten und beim Beenden nicht dauerhaft gespeichert.
+- Android-Backups sind absichtlich deaktiviert, damit keine standortnahen Zustandsdaten versehentlich uber Auto Backup oder Device Transfer exportiert werden.
+- Die einzige lokale Preference speichert nur, ob die Standortberechtigung bereits angefragt wurde, damit der Berechtigungsfluss sinnvoll reagiert.
+
+## Messlogik und Grenzen
+
+- Live-Werte und Sitzungsmetriken verwenden nur aktuelle, zeitlich vorwarts laufende Standortproben.
+- Veraltete, ruckwarts laufende, offensichtlich ungultige und als Mock markierte Positionen werden verworfen.
+- Distanz, Durchschnitt und Maximum einer Sitzung ignorieren Proben mit schlechter Genauigkeit sowie unrealistische Positionssprunge.
+- Dadurch reagiert die App defensiver auf GPS-Rauschen, ersetzt aber weiterhin keine spezialisierte Messtechnik.
+
 ## Testhinweise
 
 1. Beim ersten Start prufen, dass die App nach der genauen Standortberechtigung fragt.
@@ -47,11 +61,13 @@ Die App behandelt fehlende Berechtigungen und deaktivierte Standortdienste direk
 3. Berechtigung dauerhaft ablehnen und prufen, dass ein Sprung in die App-Einstellungen angeboten wird.
 4. Berechtigung erteilen, Standortdienste deaktivieren und prufen, dass der GPS-Hinweiszustand erscheint.
 5. Standortdienste aktivieren und prufen, dass die App in den Messbildschirm wechselt.
-6. Im Freien oder mit Mock-Standorten prufen, dass aktuelle Geschwindigkeit und Genauigkeit fortlaufend aktualisiert werden.
-7. Eine Messung starten und prufen, dass Distanz, Durchschnitt und Maximum wahrend der Fahrt steigen.
-8. Die Messung stoppen und prufen, dass die Sitzungswerte stehen bleiben.
-9. `Reset` auslosen und prufen, dass die Sitzungswerte wieder auf den Ausgangszustand gehen.
-10. Prufen, dass die GPS-Statusleiste Satelliten, Qualitat und Genauigkeit sichtbar halt.
+6. Berechtigung wahrend die App im Vordergrund entziehen und prufen, dass keine Absturze auftreten und der Berechtigungszustand nach `Resume` wieder erscheint.
+7. Im Freien prufen, dass aktuelle Geschwindigkeit und Genauigkeit fortlaufend aktualisiert werden.
+8. Eine Messung starten und prufen, dass Distanz, Durchschnitt und Maximum wahrend einer plausiblen Bewegung steigen.
+9. Messung mit schlechter Genauigkeit, altem Mock-Standort oder deutlichem Positionssprung gegenprufen und prufen, dass Sitzungsmetriken nicht spurios steigen.
+10. Die Messung stoppen und prufen, dass die Sitzungswerte stehen bleiben.
+11. `Reset` auslosen und prufen, dass die Sitzungswerte wieder auf den Ausgangszustand gehen.
+12. Prufen, dass die GPS-Statusleiste Satelliten, Qualitat und Genauigkeit sichtbar halt.
 
 ## Genauigkeitsgrenzen
 
