@@ -2,64 +2,64 @@
 
 Minimale native Android-App fur kurze GPS-basierte Geschwindigkeitsmessungen, gedacht fur spielerische Anwendungsfalle wie das Messen einer Rutschfahrt.
 
-## Aktueller Stand
-
-Schritt 6 ist umgesetzt:
-
-- Android-Projektgrundgerust
-- App-Modul mit Kotlin und Jetpack Compose
-- Laufzeitabfrage fur die genaue Standortberechtigung
-- Behandlung der Zustande fur aktivierte GPS- und Standortdienste
-- Hochfrequente Fused-Location-Updates, solange die App im Vordergrund ist
-- Live-Anzeige der aktuellen Geschwindigkeit und der aktuellen Genauigkeit
-- Sitzungssteuerung mit `Start`, `Stopp` und `Zurucksetzen`
-- Sitzungsstatistiken fur Distanz, Durchschnitt und Maximum
-- Kleine GPS-Statusleiste mit Satellitenzahl, GPS-Qualitat und Genauigkeit
-- Verdichtete Anzeige fur die Nutzung auf einen Blick mit grosser Zentralgeschwindigkeit und kurzem Genauigkeitshinweis
-
-## Geplante App-Funktionen
+## Funktionsumfang
 
 - Aktuelle Geschwindigkeit in `km/h`
-- Zuruckgelegte Distanz pro Sitzung
-- Durchschnittsgeschwindigkeit
-- Hochstgeschwindigkeit
-- GPS-Statusleiste mit Fix-Qualitat, Satelliten und Genauigkeit
-- Steuerung zum Starten, Stoppen und Zurucksetzen
+- Distanz pro Messsitzung
+- Durchschnittsgeschwindigkeit pro Messsitzung
+- Hochstgeschwindigkeit pro Messsitzung
+- GPS-Statusleiste mit Satelliten, Fix-Qualitat und Genauigkeit
+- Sitzungssteuerung mit `Start`, `Stopp` und `Reset`
+
+## Technik
+
+- Kotlin
+- Native Android-App
+- Jetpack Compose
+- Google Play Services Fused Location Provider fur schnelle Standortupdates
+- GNSS-Status uber `LocationManagerCompat`
 
 ## Bauen und Starten
 
-Dieses Repository enthalt derzeit das App-Grundgerust, den Ablauf fur Berechtigungen und GPS-Bereitschaft sowie die erste Sitzungslogik.
-
-So startest du die App:
-
 1. Projekt in Android Studio offnen.
 2. Android Studio die erforderlichen Android-SDK- und Gradle-Komponenten installieren lassen.
-3. Die Konfiguration `app` auf einem Emulator oder Android-Gerat bauen und starten.
+3. Ein echtes Android-Gerat bevorzugen, weil kurze GPS-Messungen im Emulator nur eingeschrankt aussagekraftig sind.
+4. Die Konfiguration `app` bauen und starten.
 
-Falls du lieber uber die Kommandozeile baust, richte zuerst den Gradle-Wrapper ein und fuhre dann aus:
+Falls du lieber uber die Kommandozeile baust:
 
 ```bash
 ./gradlew assembleDebug
 ```
 
-## So testest du Schritt 6
+## Berechtigungen und Voraussetzungen
 
-1. Starte die App auf einem Gerat oder Emulator mit Google-Play-Diensten oder normalen Android-Standorteinstellungen.
-2. Prufe beim ersten Start, dass die App nach der genauen Standortberechtigung fragt.
-3. Lehne die Berechtigung einmal ab und prufe, dass weiterhin der Berechtigungszustand mit erneutem Button angezeigt wird.
-4. Lehne die Berechtigung dauerhaft ab und prufe, dass die App einen Button zu den App-Einstellungen anbietet.
-5. Erteile die Berechtigung bei deaktivierten Standortdiensten und prufe, dass der GPS-deaktiviert-Zustand erscheint.
-6. Aktiviere die Standortdienste, kehre zur App zuruck und prufe, dass ohne Neustart in den Bereitschaftszustand gewechselt wird.
-7. Prufe im Bereitschaftszustand, dass die aktuelle Geschwindigkeit und Genauigkeit auch ohne laufende Messung aktualisiert werden.
-8. Starte eine Messung und bewege dich im Freien oder mit Mock-Standorten. Prufe, dass Distanz, Durchschnitt und Maximum wahrend der laufenden Sitzung aktualisiert werden.
-9. Stoppe die Messung und prufe, dass die Sitzungswerte eingefroren bleiben, wahrend die aktuelle Geschwindigkeit weiter aktualisiert wird.
-10. Starte erneut und prufe, dass eine neue Sitzung bei `0` beginnt.
-11. Setze zuruck und prufe, dass Distanz, Durchschnitt und Maximum wieder auf den Ausgangszustand gehen.
-12. Prufe, dass die obere Statusleiste `Sat`, `GPS` und Genauigkeit anzeigt und sich bei besserem oder schlechterem Empfang verandert.
-13. Prufe, dass die App im Hintergrund keine Updates mehr verarbeitet.
-14. Prufe, dass die aktuelle Geschwindigkeit zentral dominant bleibt und die drei Statistik-Kacheln darunter auch wahrend kurzer Fahrten schnell erfassbar sind.
-15. Prufe, dass der Hinweistext zur GPS-Ungenauigkeit am unteren Rand sichtbar bleibt.
+- Genaue Standortberechtigung
+- Aktivierte Standortdienste
+- Moglichst freier Himmel fur brauchbare GPS-Werte
 
-## Hinweis zur Genauigkeit
+Die App behandelt fehlende Berechtigungen und deaktivierte Standortdienste direkt in der Oberflache.
 
-Die App ist fur sehr kurze Messungen gedacht. GPS-basierte Geschwindigkeit und Distanz konnen auf kurzen Strecken verrauscht sein, besonders bei schlechter Satellitensicht oder schwacher Genauigkeit. Die Distanzberechnung zahlt nur Punkte mit brauchbarer Genauigkeit, um grobe Ausreisser etwas zu begrenzen. Die neue Statusleiste mit Satellitenzahl, Fix-Qualitat und Genauigkeit hilft dabei, Messergebnisse besser einzuordnen, ersetzt aber keine echte Hochprazisionsmessung.
+## Testhinweise
+
+1. Beim ersten Start prufen, dass die App nach der genauen Standortberechtigung fragt.
+2. Berechtigung ablehnen und prufen, dass der Hinweiszustand mit erneutem Button sichtbar bleibt.
+3. Berechtigung dauerhaft ablehnen und prufen, dass ein Sprung in die App-Einstellungen angeboten wird.
+4. Berechtigung erteilen, Standortdienste deaktivieren und prufen, dass der GPS-Hinweiszustand erscheint.
+5. Standortdienste aktivieren und prufen, dass die App in den Messbildschirm wechselt.
+6. Im Freien oder mit Mock-Standorten prufen, dass aktuelle Geschwindigkeit und Genauigkeit fortlaufend aktualisiert werden.
+7. Eine Messung starten und prufen, dass Distanz, Durchschnitt und Maximum wahrend der Fahrt steigen.
+8. Die Messung stoppen und prufen, dass die Sitzungswerte stehen bleiben.
+9. `Reset` auslosen und prufen, dass die Sitzungswerte wieder auf den Ausgangszustand gehen.
+10. Prufen, dass die GPS-Statusleiste Satelliten, Qualitat und Genauigkeit sichtbar halt.
+
+## Genauigkeitsgrenzen
+
+Die App ist bewusst einfach gehalten und nicht fur Hochprazisionsmessungen gedacht. Bei sehr kurzen Fahrten konnen GPS-Geschwindigkeit und Distanz deutlich schwanken. Besonders kleine Distanzen reagieren stark auf:
+
+- verzogerte GPS-Fixes
+- schwankende Genauigkeit
+- schlechte Satellitensicht
+- Positionssprunge zwischen zwei Updates
+
+Die Statusleiste mit Satelliten, Fix-Qualitat und Genauigkeit hilft bei der Einordnung, ersetzt aber keine professionelle Messtechnik.

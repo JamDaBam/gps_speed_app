@@ -403,6 +403,10 @@ private fun rememberMeasurementState(): MeasurementStateHolder {
     return measurementState
 }
 
+/**
+ * Keeps the live GPS feed separate from the session aggregates so the central speed display
+ * can stay active even while no measurement is running.
+ */
 private class MeasurementStateHolder(initialState: MeasurementUiState) {
     var uiState by mutableStateOf(initialState)
         private set
@@ -547,6 +551,7 @@ private data class MeasurementUiState(
             return liveState
         }
 
+        // Distance is only accumulated from points that are accurate enough for short rides.
         val nextStartTimeMillis = sessionStartTimeMillis ?: reading.timestampMillis
         val distanceIncrementMeters = lastSample
             ?.takeIf { previous -> isTrustedForDistance(previous) && isTrustedForDistance(reading) }
@@ -600,6 +605,8 @@ private fun GpsStatusSnapshot.toSatellitesLabel(): UiText = when {
 }
 
 private fun GpsStatusSnapshot.toQualityLabel(currentAccuracyMeters: Int?): UiText {
+    // The quality buckets are intentionally simple: the app should hint at trustworthiness,
+    // not pretend to provide a scientific confidence score.
     val qualityResId = when {
         !hasFix -> R.string.gps_quality_no_fix
         currentAccuracyMeters != null && currentAccuracyMeters <= 10 && (usedSatellites ?: 0) >= 4 ->
