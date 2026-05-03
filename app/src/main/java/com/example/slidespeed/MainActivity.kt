@@ -15,6 +15,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.border
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -48,6 +50,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -140,7 +143,36 @@ private fun ReadyContent() {
     val measurementStateHolder = rememberMeasurementState()
     val uiState = measurementStateHolder.uiState
     val gpsStatus = measurementStateHolder.gpsStatus
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.screenWidthDp > configuration.screenHeightDp
 
+    if (isLandscape) {
+        LandscapeReadyContent(
+            uiState = uiState,
+            gpsStatus = gpsStatus,
+            onStart = measurementStateHolder::startSession,
+            onStop = measurementStateHolder::stopSession,
+            onReset = measurementStateHolder::resetSession,
+        )
+    } else {
+        PortraitReadyContent(
+            uiState = uiState,
+            gpsStatus = gpsStatus,
+            onStart = measurementStateHolder::startSession,
+            onStop = measurementStateHolder::stopSession,
+            onReset = measurementStateHolder::resetSession,
+        )
+    }
+}
+
+@Composable
+private fun PortraitReadyContent(
+    uiState: MeasurementUiState,
+    gpsStatus: GpsStatusSnapshot,
+    onStart: () -> Unit,
+    onStop: () -> Unit,
+    onReset: () -> Unit,
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -158,60 +190,62 @@ private fun ReadyContent() {
                 .fillMaxWidth()
                 .padding(top = 16.dp),
         )
-        Box(
+        MeasurementDashboard(
             modifier = Modifier
                 .weight(1f)
-                .fillMaxWidth()
                 .padding(top = 18.dp),
             contentAlignment = Alignment.Center,
+            uiState = uiState,
+            onStart = onStart,
+            onStop = onStop,
+            onReset = onReset,
+        )
+    }
+}
+
+@Composable
+private fun LandscapeReadyContent(
+    uiState: MeasurementUiState,
+    gpsStatus: GpsStatusSnapshot,
+    onStart: () -> Unit,
+    onStop: () -> Unit,
+    onReset: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.statusBars)
+            .padding(horizontal = 24.dp, vertical = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(20.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Column(
+            modifier = Modifier
+                .weight(0.44f)
+                .fillMaxHeight(),
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(
-                    text = uiState.statusLabel.resolve(),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                Text(
-                    text = uiState.currentSpeedPrimaryLabel.resolve(),
-                    fontSize = 88.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(top = 20.dp),
-                )
-                Text(
-                    text = uiState.currentSpeedSecondaryLabel.resolve(),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 6.dp),
-                )
-                Text(
-                    text = stringResource(R.string.current_speed_label),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-                Text(
-                    text = uiState.statusBarAccuracyLabel.resolve(),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-                Spacer(modifier = Modifier.height(32.dp))
-                StatsSection(measurementState = uiState)
-                Spacer(modifier = Modifier.height(24.dp))
-                SessionControls(
-                    isRunning = uiState.isRunning,
-                    onStart = measurementStateHolder::startSession,
-                    onStop = measurementStateHolder::stopSession,
-                    onReset = measurementStateHolder::resetSession,
-                )
-            }
+            GpsStatusBar(
+                gpsStatus = gpsStatus,
+                accuracyLabel = uiState.statusBarAccuracyLabel.resolve(),
+                qualityLabel = gpsStatus.toQualityLabel(uiState.currentAccuracyMeters).resolve(),
+            )
+            SlideHeroBanner(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp),
+            )
         }
-        // Text(
-        //
-        // text = stringResource(R.string.measurement_note),
-        // style = MaterialTheme.typography.bodySmall,
-        // modifier = Modifier.fillMaxWidth(),
-        // )
+        MeasurementDashboard(
+            modifier = Modifier
+                .weight(0.56f)
+                .fillMaxHeight()
+                .verticalScroll(rememberScrollState()),
+            contentAlignment = Alignment.TopCenter,
+            uiState = uiState,
+            onStart = onStart,
+            onStop = onStop,
+            onReset = onReset,
+        )
     }
 }
 
@@ -233,6 +267,62 @@ private fun SlideHeroBanner(modifier: Modifier = Modifier) {
                 .clip(shape)
                 .border(width = 1.dp, color = Color.White.copy(alpha = 0.4f), shape = shape),
         )
+    }
+}
+
+@Composable
+private fun MeasurementDashboard(
+    modifier: Modifier = Modifier,
+    contentAlignment: Alignment = Alignment.Center,
+    uiState: MeasurementUiState,
+    onStart: () -> Unit,
+    onStop: () -> Unit,
+    onReset: () -> Unit,
+) {
+    Box(
+        modifier = modifier.fillMaxWidth(),
+        contentAlignment = contentAlignment,
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = uiState.statusLabel.resolve(),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Text(
+                text = uiState.currentSpeedPrimaryLabel.resolve(),
+                fontSize = 88.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(top = 20.dp),
+            )
+            Text(
+                text = uiState.currentSpeedSecondaryLabel.resolve(),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+            Text(
+                text = stringResource(R.string.current_speed_label),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+            Text(
+                text = uiState.statusBarAccuracyLabel.resolve(),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+            Spacer(modifier = Modifier.height(32.dp))
+            StatsSection(measurementState = uiState)
+            Spacer(modifier = Modifier.height(24.dp))
+            SessionControls(
+                isRunning = uiState.isRunning,
+                onStart = onStart,
+                onStop = onStop,
+                onReset = onReset,
+            )
+        }
     }
 }
 
