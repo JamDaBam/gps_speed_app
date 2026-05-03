@@ -24,13 +24,13 @@ data class MeasurementUiState(
 )
 
 fun MeasurementSnapshot.toUiState(): MeasurementUiState = MeasurementUiState(
-    currentSpeedPrimaryLabel = currentSpeedMps.toMetersPerSecondLabel(),
-    currentSpeedSecondaryLabel = currentSpeedKmh.toSpeedValueLabel(),
+    currentSpeedPrimaryLabel = currentSpeedKmh.toSpeedValueLabel(),
+    currentSpeedSecondaryLabel = currentSpeedMps.toMetersPerSecondLabel(),
     distanceValueLabel = totalDistanceMeters.toDistanceValueLabel(),
-    averageSpeedPrimaryLabel = averageSpeedKmh.toMetersPerSecondLabel(),
-    averageSpeedSecondaryLabel = averageSpeedKmh.toSpeedValueLabel(),
-    maxSpeedPrimaryLabel = maxSpeedKmh.toMetersPerSecondLabel(),
-    maxSpeedSecondaryLabel = maxSpeedKmh.toSpeedValueLabel(),
+    averageSpeedPrimaryLabel = averageSpeedKmh.toSpeedValueLabel(),
+    averageSpeedSecondaryLabel = averageSpeedKmh.toMetersPerSecondLabel(),
+    maxSpeedPrimaryLabel = maxSpeedKmh.toSpeedValueLabel(),
+    maxSpeedSecondaryLabel = maxSpeedKmh.toMetersPerSecondLabel(),
     statusLabel = when (sessionStatus) {
         SessionStatus.Ready -> UiText.Resource(R.string.session_ready)
         SessionStatus.Running -> UiText.Resource(R.string.session_running)
