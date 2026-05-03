@@ -15,8 +15,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.border
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +27,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -221,7 +220,7 @@ private fun LandscapeReadyContent(
     ) {
         Column(
             modifier = Modifier
-                .weight(0.44f)
+                .weight(0.4f)
                 .fillMaxHeight(),
         ) {
             GpsStatusBar(
@@ -232,15 +231,16 @@ private fun LandscapeReadyContent(
             SlideHeroBanner(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 16.dp),
+                    .padding(top = 16.dp)
+                    .heightIn(max = 220.dp),
             )
         }
         MeasurementDashboard(
             modifier = Modifier
-                .weight(0.56f)
-                .fillMaxHeight()
-                .verticalScroll(rememberScrollState()),
+                .weight(0.6f)
+                .fillMaxHeight(),
             contentAlignment = Alignment.TopCenter,
+            compact = true,
             uiState = uiState,
             onStart = onStart,
             onStop = onStop,
@@ -274,6 +274,7 @@ private fun SlideHeroBanner(modifier: Modifier = Modifier) {
 private fun MeasurementDashboard(
     modifier: Modifier = Modifier,
     contentAlignment: Alignment = Alignment.Center,
+    compact: Boolean = false,
     uiState: MeasurementUiState,
     onStart: () -> Unit,
     onStop: () -> Unit,
@@ -284,38 +285,47 @@ private fun MeasurementDashboard(
         contentAlignment = contentAlignment,
     ) {
         Column(
+            modifier = if (compact) Modifier.fillMaxHeight() else Modifier,
             horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = if (compact) Arrangement.SpaceBetween else Arrangement.Top,
         ) {
-            Text(
-                text = uiState.statusLabel.resolve(),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = uiState.statusLabel.resolve(),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    text = uiState.currentSpeedPrimaryLabel.resolve(),
+                    fontSize = if (compact) 68.sp else 88.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = if (compact) 12.dp else 20.dp),
+                )
+                Text(
+                    text = uiState.currentSpeedSecondaryLabel.resolve(),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = if (compact) 4.dp else 6.dp),
+                )
+                Text(
+                    text = stringResource(R.string.current_speed_label),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(top = if (compact) 4.dp else 8.dp),
+                )
+                Text(
+                    text = uiState.statusBarAccuracyLabel.resolve(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = if (compact) 4.dp else 8.dp),
+                )
+            }
+            Spacer(modifier = Modifier.height(if (compact) 16.dp else 32.dp))
+            StatsSection(
+                measurementState = uiState,
+                compact = compact,
             )
-            Text(
-                text = uiState.currentSpeedPrimaryLabel.resolve(),
-                fontSize = 88.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 20.dp),
-            )
-            Text(
-                text = uiState.currentSpeedSecondaryLabel.resolve(),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 6.dp),
-            )
-            Text(
-                text = stringResource(R.string.current_speed_label),
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(top = 8.dp),
-            )
-            Text(
-                text = uiState.statusBarAccuracyLabel.resolve(),
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(top = 8.dp),
-            )
-            Spacer(modifier = Modifier.height(32.dp))
-            StatsSection(measurementState = uiState)
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(if (compact) 16.dp else 24.dp))
             SessionControls(
                 isRunning = uiState.isRunning,
                 onStart = onStart,
@@ -360,12 +370,15 @@ private fun GpsStatusBar(
 }
 
 @Composable
-private fun StatsSection(measurementState: MeasurementUiState) {
+private fun StatsSection(
+    measurementState: MeasurementUiState,
+    compact: Boolean = false,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(IntrinsicSize.Min),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 12.dp),
     ) {
         StatTile(
             modifier = Modifier
@@ -373,6 +386,7 @@ private fun StatsSection(measurementState: MeasurementUiState) {
                 .fillMaxHeight(),
             label = stringResource(R.string.distance_label),
             primaryValue = measurementState.distanceValueLabel.resolve(),
+            compact = compact,
         )
         StatTile(
             modifier = Modifier
@@ -381,6 +395,7 @@ private fun StatsSection(measurementState: MeasurementUiState) {
             label = stringResource(R.string.average_speed_label),
             primaryValue = measurementState.averageSpeedPrimaryLabel.resolve(),
             secondaryValue = measurementState.averageSpeedSecondaryLabel.resolve(),
+            compact = compact,
         )
         StatTile(
             modifier = Modifier
@@ -389,6 +404,7 @@ private fun StatsSection(measurementState: MeasurementUiState) {
             label = stringResource(R.string.max_speed_label),
             primaryValue = measurementState.maxSpeedPrimaryLabel.resolve(),
             secondaryValue = measurementState.maxSpeedSecondaryLabel.resolve(),
+            compact = compact,
         )
     }
 }
@@ -399,6 +415,7 @@ private fun StatTile(
     label: String,
     primaryValue: String,
     secondaryValue: String? = null,
+    compact: Boolean = false,
 ) {
     Surface(
         modifier = modifier,
@@ -408,7 +425,10 @@ private fun StatTile(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 14.dp),
+                .padding(
+                    horizontal = if (compact) 8.dp else 12.dp,
+                    vertical = if (compact) 10.dp else 14.dp,
+                ),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
@@ -417,15 +437,15 @@ private fun StatTile(
             )
             Text(
                 text = primaryValue,
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(top = 8.dp),
+                style = if (compact) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(top = if (compact) 6.dp else 8.dp),
             )
             if (secondaryValue != null) {
                 Text(
                     text = secondaryValue,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp),
+                    modifier = Modifier.padding(top = if (compact) 2.dp else 4.dp),
                 )
             }
         }
