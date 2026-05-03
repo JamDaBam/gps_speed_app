@@ -30,7 +30,7 @@ class MeasurementTrackerTest {
         )
         tracker.consume(
             reading(
-                latitude = 52.5205,
+                latitude = northOf(50.0),
                 longitude = 13.405,
                 timestampMillis = NOW_MILLIS + 5_000L,
                 accuracyMeters = 5f,
@@ -69,10 +69,12 @@ class MeasurementTrackerTest {
     }
 
     @Test
-    fun validSamplesAccumulateDistanceAverageAndMax() {
-        val tracker = MeasurementTracker(validator = LocationReadingValidator { NOW_MILLIS + 11_000L })
+    fun validSamplesAccumulateDistanceAverageAndMaxFromFilteredSpeed() {
+        var currentTimeMillis = NOW_MILLIS
+        val tracker = MeasurementTracker(validator = LocationReadingValidator { currentTimeMillis })
         tracker.startSession()
 
+        currentTimeMillis = NOW_MILLIS + 1_000L
         tracker.consume(
             reading(
                 latitude = 52.52,
@@ -82,23 +84,105 @@ class MeasurementTrackerTest {
                 accuracyMeters = 5f,
             ),
         )
+        currentTimeMillis = NOW_MILLIS + 11_000L
         tracker.consume(
             reading(
-                latitude = 52.5209,
+                latitude = northOf(100.0),
                 longitude = 13.405,
                 timestampMillis = NOW_MILLIS + 10_000L,
                 speedKmh = 16f,
                 accuracyMeters = 5f,
             ),
         )
+        currentTimeMillis = NOW_MILLIS + 21_000L
+        tracker.consume(
+            reading(
+                latitude = northOf(200.0),
+                longitude = 13.405,
+                timestampMillis = NOW_MILLIS + 20_000L,
+                speedKmh = 14f,
+                accuracyMeters = 5f,
+            ),
+        )
 
-        assertTrue(tracker.snapshot.totalDistanceMeters > 90f)
-        assertEquals(16, tracker.snapshot.maxSpeedKmh)
+        assertTrue(tracker.snapshot.totalDistanceMeters > 190f)
+        assertEquals(13, tracker.snapshot.maxSpeedKmh)
         assertTrue(tracker.snapshot.averageSpeedKmh > 30)
     }
 
     @Test
-    fun resumeKeepsStatsAndExcludesPausedTimeFromAverage() {
+    fun subThresholdSpeedsRemainZero() {
+        val tracker = MeasurementTracker(validator = LocationReadingValidator { NOW_MILLIS + 2_000L })
+
+        tracker.consume(reading(timestampMillis = NOW_MILLIS, speedKmh = 1.6f, accuracyMeters = 5f))
+        tracker.consume(reading(timestampMillis = NOW_MILLIS + 1_000L, speedKmh = 1.9f, accuracyMeters = 5f))
+
+        assertEquals(0, tracker.snapshot.currentSpeedKmh)
+        assertEquals(0f, tracker.snapshot.currentSpeedMps, 0.001f)
+    }
+
+    @Test
+    fun poorLiveAccuracyForcesZeroDisplay() {
+        val tracker = MeasurementTracker(validator = LocationReadingValidator { NOW_MILLIS + 3_000L })
+
+        tracker.consume(reading(timestampMillis = NOW_MILLIS, speedKmh = 8f, accuracyMeters = 5f))
+        tracker.consume(reading(timestampMillis = NOW_MILLIS + 1_000L, speedKmh = 10f, accuracyMeters = 5f))
+        assertEquals(9, tracker.snapshot.currentSpeedKmh)
+
+        tracker.consume(reading(timestampMillis = NOW_MILLIS + 2_000L, speedKmh = 12f, accuracyMeters = 30f))
+
+        assertEquals(0, tracker.snapshot.currentSpeedKmh)
+        assertEquals(30, tracker.snapshot.currentAccuracyMeters)
+    }
+
+    @Test
+    fun singleMovementSpikeDoesNotConfirmMotion() {
+        val tracker = MeasurementTracker(validator = LocationReadingValidator { NOW_MILLIS + 2_000L })
+
+        tracker.consume(reading(timestampMillis = NOW_MILLIS, speedKmh = 12f, accuracyMeters = 5f))
+
+        assertEquals(0, tracker.snapshot.currentSpeedKmh)
+        assertEquals(0f, tracker.snapshot.currentSpeedMps, 0.001f)
+    }
+
+    @Test
+    fun twoConsecutiveQualifyingSamplesConfirmMotion() {
+        val tracker = MeasurementTracker(validator = LocationReadingValidator { NOW_MILLIS + 3_000L })
+
+        tracker.consume(reading(timestampMillis = NOW_MILLIS, speedKmh = 12f, accuracyMeters = 5f))
+        tracker.consume(reading(timestampMillis = NOW_MILLIS + 1_000L, speedKmh = 18f, accuracyMeters = 5f))
+
+        assertEquals(15, tracker.snapshot.currentSpeedKmh)
+        assertEquals(15f / 3.6f, tracker.snapshot.currentSpeedMps, 0.001f)
+    }
+
+    @Test
+    fun confirmedMovementUsesThreeSampleAverage() {
+        val tracker = MeasurementTracker(validator = LocationReadingValidator { NOW_MILLIS + 4_000L })
+
+        tracker.consume(reading(timestampMillis = NOW_MILLIS, speedKmh = 12f, accuracyMeters = 5f))
+        tracker.consume(reading(timestampMillis = NOW_MILLIS + 1_000L, speedKmh = 18f, accuracyMeters = 5f))
+        tracker.consume(reading(timestampMillis = NOW_MILLIS + 2_000L, speedKmh = 15f, accuracyMeters = 5f))
+
+        assertEquals(15, tracker.snapshot.currentSpeedKmh)
+        assertEquals(15f / 3.6f, tracker.snapshot.currentSpeedMps, 0.001f)
+    }
+
+    @Test
+    fun stopSampleClearsMovementImmediately() {
+        val tracker = MeasurementTracker(validator = LocationReadingValidator { NOW_MILLIS + 4_000L })
+
+        tracker.consume(reading(timestampMillis = NOW_MILLIS, speedKmh = 12f, accuracyMeters = 5f))
+        tracker.consume(reading(timestampMillis = NOW_MILLIS + 1_000L, speedKmh = 18f, accuracyMeters = 5f))
+        assertEquals(15, tracker.snapshot.currentSpeedKmh)
+
+        tracker.consume(reading(timestampMillis = NOW_MILLIS + 2_000L, speedKmh = 1.5f, accuracyMeters = 5f))
+
+        assertEquals(0, tracker.snapshot.currentSpeedKmh)
+    }
+
+    @Test
+    fun resumeKeepsStatsAndExcludesPausedTimeFromAverageWhileResettingFilterState() {
         var currentTimeMillis = NOW_MILLIS
         val tracker = MeasurementTracker(
             validator = LocationReadingValidator { currentTimeMillis + 1_000L },
@@ -117,7 +201,7 @@ class MeasurementTrackerTest {
         )
         tracker.consume(
             reading(
-                latitude = 52.52045,
+                latitude = northOf(50.0),
                 longitude = 13.405,
                 timestampMillis = NOW_MILLIS + 5_000L,
                 speedKmh = 20f,
@@ -135,16 +219,19 @@ class MeasurementTrackerTest {
 
         tracker.consume(
             reading(
-                latitude = 52.5209,
+                latitude = northOf(100.0),
                 longitude = 13.405,
                 timestampMillis = NOW_MILLIS + 31_000L,
                 speedKmh = 24f,
                 accuracyMeters = 5f,
             ),
         )
+        assertEquals(0, tracker.snapshot.currentSpeedKmh)
+        assertEquals(distanceBeforePause, tracker.snapshot.totalDistanceMeters, 0.01f)
+
         tracker.consume(
             reading(
-                latitude = 52.52135,
+                latitude = northOf(150.0),
                 longitude = 13.405,
                 timestampMillis = NOW_MILLIS + 36_000L,
                 speedKmh = 24f,
@@ -155,19 +242,20 @@ class MeasurementTrackerTest {
         assertTrue(tracker.snapshot.totalDistanceMeters > distanceBeforePause)
         assertTrue(tracker.snapshot.averageSpeedKmh > 20)
         assertEquals(24, tracker.snapshot.maxSpeedKmh)
-        assertEquals(maxBeforePause, 20)
+        assertEquals(16, maxBeforePause)
         assertEquals(20_000L, tracker.snapshot.accumulatedPausedDurationMillis)
     }
 
     @Test
     fun rejectsStaleOutOfOrderAndMockSamplesFromLiveState() {
-        val tracker = MeasurementTracker(validator = LocationReadingValidator { NOW_MILLIS })
+        val tracker = MeasurementTracker(validator = LocationReadingValidator { NOW_MILLIS + 2_000L })
 
         tracker.consume(reading(timestampMillis = NOW_MILLIS - 20_000L, speedKmh = 12f, accuracyMeters = 5f))
         assertEquals(0, tracker.snapshot.currentSpeedKmh)
         assertEquals(0f, tracker.snapshot.currentSpeedMps, 0.001f)
 
         tracker.consume(reading(timestampMillis = NOW_MILLIS, speedKmh = 14f, accuracyMeters = 5f))
+        tracker.consume(reading(timestampMillis = NOW_MILLIS + 1_000L, speedKmh = 14f, accuracyMeters = 5f))
         assertEquals(14, tracker.snapshot.currentSpeedKmh)
         assertEquals(14f / 3.6f, tracker.snapshot.currentSpeedMps, 0.001f)
 
@@ -175,14 +263,21 @@ class MeasurementTrackerTest {
         assertEquals(14, tracker.snapshot.currentSpeedKmh)
         assertEquals(14f / 3.6f, tracker.snapshot.currentSpeedMps, 0.001f)
 
-        tracker.consume(reading(timestampMillis = NOW_MILLIS + 1L, speedKmh = 20f, accuracyMeters = 5f, isMock = true))
+        tracker.consume(
+            reading(
+                timestampMillis = NOW_MILLIS + 2_000L,
+                speedKmh = 20f,
+                accuracyMeters = 5f,
+                isMock = true,
+            ),
+        )
         assertEquals(14, tracker.snapshot.currentSpeedKmh)
         assertEquals(14f / 3.6f, tracker.snapshot.currentSpeedMps, 0.001f)
     }
 
     @Test
-    fun rejectsPoorAccuracyAndImplausibleJumpsFromSessionStats() {
-        val tracker = MeasurementTracker(validator = LocationReadingValidator { NOW_MILLIS + 1_000L })
+    fun stationaryDriftDoesNotIncreaseDistance() {
+        val tracker = MeasurementTracker(validator = LocationReadingValidator { NOW_MILLIS + 6_000L })
         tracker.startSession()
 
         tracker.consume(
@@ -190,31 +285,95 @@ class MeasurementTrackerTest {
                 latitude = 52.52,
                 longitude = 13.405,
                 timestampMillis = NOW_MILLIS,
-                speedKmh = 9f,
+                speedKmh = 1.2f,
                 accuracyMeters = 5f,
             ),
         )
         tracker.consume(
             reading(
-                latitude = 52.5203,
+                latitude = northOf(3.0),
                 longitude = 13.405,
                 timestampMillis = NOW_MILLIS + 5_000L,
-                speedKmh = 50f,
-                accuracyMeters = 80f,
-            ),
-        )
-        tracker.consume(
-            reading(
-                latitude = 52.54,
-                longitude = 13.405,
-                timestampMillis = NOW_MILLIS + 6_000L,
-                speedKmh = 50f,
+                speedKmh = 1.5f,
                 accuracyMeters = 5f,
             ),
         )
 
         assertEquals(0f, tracker.snapshot.totalDistanceMeters, 0.01f)
-        assertEquals(9, tracker.snapshot.maxSpeedKmh)
+        assertEquals(0, tracker.snapshot.averageSpeedKmh)
+        assertEquals(0, tracker.snapshot.maxSpeedKmh)
+    }
+
+    @Test
+    fun averageAndMaxIgnoreFilteredOutSamples() {
+        var currentTimeMillis = NOW_MILLIS
+        val tracker = MeasurementTracker(validator = LocationReadingValidator { currentTimeMillis })
+        tracker.startSession()
+
+        currentTimeMillis = NOW_MILLIS + 1_000L
+        tracker.consume(
+            reading(
+                latitude = 52.52,
+                longitude = 13.405,
+                timestampMillis = NOW_MILLIS,
+                speedKmh = 10f,
+                accuracyMeters = 5f,
+            ),
+        )
+        currentTimeMillis = NOW_MILLIS + 6_000L
+        tracker.consume(
+            reading(
+                latitude = northOf(50.0),
+                longitude = 13.405,
+                timestampMillis = NOW_MILLIS + 5_000L,
+                speedKmh = 22f,
+                accuracyMeters = 5f,
+            ),
+        )
+        val confirmedDistanceMeters = tracker.snapshot.totalDistanceMeters
+        val confirmedAverageKmh = tracker.snapshot.averageSpeedKmh
+        val confirmedMaxKmh = tracker.snapshot.maxSpeedKmh
+
+        currentTimeMillis = NOW_MILLIS + 11_000L
+        tracker.consume(
+            reading(
+                latitude = northOf(100.0),
+                longitude = 13.405,
+                timestampMillis = NOW_MILLIS + 10_000L,
+                speedKmh = 25f,
+                accuracyMeters = 40f,
+            ),
+        )
+        currentTimeMillis = NOW_MILLIS + 16_000L
+        tracker.consume(
+            reading(
+                latitude = northOf(150.0),
+                longitude = 13.405,
+                timestampMillis = NOW_MILLIS + 15_000L,
+                speedKmh = 24f,
+                accuracyMeters = 5f,
+            ),
+        )
+
+        assertEquals(0, tracker.snapshot.currentSpeedKmh)
+        assertEquals(confirmedDistanceMeters, tracker.snapshot.totalDistanceMeters, 0.01f)
+        assertEquals(confirmedAverageKmh, tracker.snapshot.averageSpeedKmh)
+        assertEquals(confirmedMaxKmh, tracker.snapshot.maxSpeedKmh)
+
+        currentTimeMillis = NOW_MILLIS + 21_000L
+        tracker.consume(
+            reading(
+                latitude = northOf(200.0),
+                longitude = 13.405,
+                timestampMillis = NOW_MILLIS + 20_000L,
+                speedKmh = 24f,
+                accuracyMeters = 5f,
+            ),
+        )
+
+        assertTrue(tracker.snapshot.totalDistanceMeters > confirmedDistanceMeters)
+        assertEquals(24, tracker.snapshot.maxSpeedKmh)
+        assertTrue(tracker.snapshot.averageSpeedKmh > 0)
     }
 }
 
@@ -236,4 +395,7 @@ private fun reading(
     )
 }
 
+private fun northOf(meters: Double): Double = 52.52 + meters / METERS_PER_LATITUDE_DEGREE
+
 private const val NOW_MILLIS = 1_700_000_000_000L
+private const val METERS_PER_LATITUDE_DEGREE = 111_111.0

@@ -1,6 +1,7 @@
 package com.example.slidespeed.measurement
 
 import com.example.slidespeed.location.LocationReading
+import kotlin.collections.ArrayDeque
 import kotlin.math.PI
 import kotlin.math.asin
 import kotlin.math.cos
@@ -32,6 +33,9 @@ class MeasurementTracker(
     private val timeMillisProvider: () -> Long = System::currentTimeMillis,
     initialSnapshot: MeasurementSnapshot = MeasurementSnapshot(),
 ) {
+    private var speedFilterState = SpeedFilterState()
+    private var sessionCandidateReading: LocationReading? = null
+
     var snapshot: MeasurementSnapshot = initialSnapshot
         private set
 
@@ -55,6 +59,7 @@ class MeasurementTracker(
             )
             SessionStatus.Running -> snapshot
         }
+        resetRuntimeFilterState()
     }
 
     fun stopSession() {
@@ -67,6 +72,7 @@ class MeasurementTracker(
             pauseStartedAtMillis = timeMillisProvider(),
             lastSessionReading = null,
         )
+        resetRuntimeFilterState()
     }
 
     fun resetSession() {
@@ -81,6 +87,7 @@ class MeasurementTracker(
             pauseStartedAtMillis = null,
             lastSessionReading = null,
         )
+        resetRuntimeFilterState()
     }
 
     fun consume(reading: LocationReading) {
@@ -88,12 +95,13 @@ class MeasurementTracker(
             return
         }
 
+        val filterResult = speedFilterState.consume(reading)
         val roundedAccuracy = reading.accuracyMeters
             ?.coerceAtLeast(0f)
             ?.roundToInt()
         snapshot = snapshot.copy(
-            currentSpeedMps = reading.speedKmh.toMetersPerSecond(),
-            currentSpeedKmh = reading.speedKmh.roundToInt().coerceAtLeast(0),
+            currentSpeedMps = filterResult.filteredSpeedKmh.toMetersPerSecond(),
+            currentSpeedKmh = filterResult.filteredSpeedKmh.roundToInt().coerceAtLeast(0),
             currentAccuracyMeters = roundedAccuracy,
             lastAcceptedReading = reading,
         )
@@ -102,16 +110,31 @@ class MeasurementTracker(
             return
         }
 
-        if (!validator.shouldUseForSession(reading, snapshot.lastSessionReading)) {
+        if (!filterResult.isQualifyingForMotion) {
+            sessionCandidateReading = null
             return
         }
 
-        val nextStartTimeMillis = snapshot.sessionStartTimeMillis ?: reading.timestampMillis
-        val distanceIncrementMeters = snapshot.lastSessionReading
-            ?.let { previous -> distanceMetersBetween(previous, reading) }
-            ?: 0f
+        val previousCandidateReading = sessionCandidateReading
+        sessionCandidateReading = reading
+
+        if (!filterResult.isMovementConfirmed || previousCandidateReading == null) {
+            snapshot = snapshot.copy(lastSessionReading = null)
+            return
+        }
+
+        if (!validator.shouldUseForSession(reading, previousCandidateReading)) {
+            snapshot = snapshot.copy(lastSessionReading = null)
+            return
+        }
+
+        val nextStartTimeMillis = snapshot.sessionStartTimeMillis ?: previousCandidateReading.timestampMillis
+        val distanceIncrementMeters = distanceMetersBetween(previousCandidateReading, reading)
         val nextDistanceMeters = snapshot.totalDistanceMeters + distanceIncrementMeters
-        val nextMaxSpeedKmh = max(snapshot.maxSpeedKmh.toFloat(), reading.speedKmh.coerceAtLeast(0f))
+        val nextMaxSpeedKmh = max(
+            snapshot.maxSpeedKmh.toFloat(),
+            filterResult.filteredSpeedKmh.coerceAtLeast(0f),
+        )
         val durationMillis = (
             reading.timestampMillis -
                 nextStartTimeMillis -
@@ -130,6 +153,11 @@ class MeasurementTracker(
             sessionStartTimeMillis = nextStartTimeMillis,
             lastSessionReading = reading,
         )
+    }
+
+    private fun resetRuntimeFilterState() {
+        speedFilterState = SpeedFilterState()
+        sessionCandidateReading = null
     }
 
     private fun pausedDurationMillis(): Long {
@@ -211,6 +239,53 @@ internal fun distanceMetersBetween(start: LocationReading, end: LocationReading)
 
 private fun Double.toRadians(): Double = this / 180.0 * PI
 
+private data class FilterResult(
+    val filteredSpeedKmh: Float,
+    val isQualifyingForMotion: Boolean,
+    val isMovementConfirmed: Boolean,
+)
+
+private class SpeedFilterState {
+    private var consecutiveQualifyingSamples = 0
+    private val recentQualifyingSpeedsKmh = ArrayDeque<Float>()
+
+    fun consume(reading: LocationReading): FilterResult {
+        val isQualifyingForMotion = reading.speedKmh >= MIN_MOVEMENT_SPEED_KMH &&
+            (reading.accuracyMeters ?: Float.POSITIVE_INFINITY) <= MAX_LIVE_SPEED_ACCURACY_METERS
+        if (!isQualifyingForMotion) {
+            reset()
+            return FilterResult(
+                filteredSpeedKmh = 0f,
+                isQualifyingForMotion = false,
+                isMovementConfirmed = false,
+            )
+        }
+
+        consecutiveQualifyingSamples += 1
+        recentQualifyingSpeedsKmh.addLast(reading.speedKmh.coerceAtLeast(0f))
+        while (recentQualifyingSpeedsKmh.size > LIVE_SPEED_SMOOTHING_WINDOW) {
+            recentQualifyingSpeedsKmh.removeFirst()
+        }
+
+        val isMovementConfirmed = consecutiveQualifyingSamples >= MOVEMENT_CONFIRMATION_SAMPLES
+        val filteredSpeedKmh = if (isMovementConfirmed) {
+            recentQualifyingSpeedsKmh.average().toFloat()
+        } else {
+            0f
+        }
+        return FilterResult(
+            filteredSpeedKmh = filteredSpeedKmh,
+            isQualifyingForMotion = true,
+            isMovementConfirmed = isMovementConfirmed,
+        )
+    }
+
+    private fun reset() {
+        consecutiveQualifyingSamples = 0
+        recentQualifyingSpeedsKmh.clear()
+    }
+}
+
 private const val METERS_PER_KILOMETER = 1_000f
 private const val MILLIS_PER_HOUR = 3_600_000f
 private const val KMH_PER_MPS = 3.6f
@@ -220,5 +295,13 @@ private const val MAX_LATITUDE = 90.0
 private const val MIN_LONGITUDE = -180.0
 private const val MAX_LONGITUDE = 180.0
 private const val MAX_SAMPLE_AGE_MILLIS = 15_000L
+// Hold the display at zero for near-stationary noise.
+private const val MIN_MOVEMENT_SPEED_KMH = 2.0f
+// Live speed needs tighter accuracy than session distance accumulation.
+private const val MAX_LIVE_SPEED_ACCURACY_METERS = 20f
+// Require two consecutive moving samples before showing motion.
+private const val MOVEMENT_CONFIRMATION_SAMPLES = 2
+// Smooth confirmed speed over a short rolling window.
+private const val LIVE_SPEED_SMOOTHING_WINDOW = 3
 private const val MAX_DISTANCE_ACCURACY_METERS = 25f
 private const val MAX_SEGMENT_SPEED_KMH = 80f
